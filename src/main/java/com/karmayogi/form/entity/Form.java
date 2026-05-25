@@ -1,7 +1,7 @@
 package com.karmayogi.form.entity;
 
-import com.karmayogi.formsearch.config.ListConverter;
-import com.karmayogi.formsearch.config.MapConverter;
+import com.karmayogi.form.config.ListConverter;
+import com.karmayogi.form.config.MapConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
