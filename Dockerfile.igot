@@ -1,0 +1,7 @@
+FROM eclipse-temurin:17-jre-jammy
+RUN useradd -ms /bin/bash appuser
+COPY form-0.0.1-SNAPSHOT.jar /opt/
+RUN chown -R appuser:appuser /opt
+USER appuser
+WORKDIR /opt
+CMD ["/bin/bash", "-c", "java -XX:+PrintFlagsFinal $JAVA_OPTIONS -jar /opt/form-0.0.1-SNAPSHOT.jar"]
