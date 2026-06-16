@@ -1,12 +1,12 @@
 package com.karmayogi.form.controller;
 
 import com.karmayogi.form.service.FormService;
+import com.karmayogi.form.utils.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.Map;
 
 import static com.karmayogi.form.utils.ResponseUtil.buildResponse;
@@ -29,6 +29,12 @@ public class FormController {
         Map<String, Object> searchResult = formService.searchForms(request);
 
         return ResponseEntity.ok(buildResponse("api.forms.search", searchResult));
+    }
+
+    @GetMapping(value = "/read", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> getFormById(@RequestParam("formId") String formId) {
+        ApiResponse response = formService.getFormById(formId);
+        return ResponseEntity.ok(response);
     }
 
 }
