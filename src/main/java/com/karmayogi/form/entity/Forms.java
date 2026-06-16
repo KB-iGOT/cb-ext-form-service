@@ -1,20 +1,22 @@
 package com.karmayogi.form.entity;
 
-import com.karmayogi.form.config.ListConverter;
-import com.karmayogi.form.config.MapConverter;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
+import org.hibernate.annotations.Type;
 import java.util.Map;
+
+
 /**
  * @author anil
  */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "forms")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class Form {
+public class Forms {
 
     @Id
     @Column(name = "formid")
@@ -30,25 +32,25 @@ public class Form {
     private String contextType;
 
     @Column(name = "version")
-    private BigDecimal version;
+    private Integer version;
 
     @Column(name = "clientversion")
-    private String clientVersion;
+    private Double clientVersion;
 
     @Column(name = "startdate")
-    private Instant startDate;
+    private Long startDate;
 
     @Column(name = "enddate")
-    private Instant endDate;
-
-    @Column(name = "createdat")
-    private Instant createdAt;
-
-    @Column(name = "updatedat")
-    private Instant updatedAt;
+    private Long endDate;
 
     @Column(name = "archiveddate")
-    private Instant archivedDate;
+    private Long archivedDate;
+
+    @Column(name = "createdat")
+    private Long createdAt;
+
+    @Column(name = "updatedat")
+    private Long updatedAt;
 
     @Column(name = "createdby")
     private String createdBy;
@@ -68,16 +70,19 @@ public class Form {
     @Column(name = "courseid")
     private String courseId;
 
+    @Type(JsonBinaryType.class)
+    @Column(name = "questions", columnDefinition = "jsonb")
+    private Object questions;
+
+    @Type(JsonBinaryType.class)
     @Column(name = "additionalproperties", columnDefinition = "jsonb")
-    @Convert(converter = MapConverter.class)
     private Map<String, Object> additionalProperties;
 
+    @Type(JsonBinaryType.class)
     @Column(name = "mandatoryfields", columnDefinition = "jsonb")
-    @Convert(converter = ListConverter.class)
-    private List<Object> mandatoryFields;
+    private Object mandatoryFields;
 
+    @Type(JsonBinaryType.class)
     @Column(name = "meta", columnDefinition = "jsonb")
-    @Convert(converter = MapConverter.class)
-    private Map<String, Object> meta;
+    private Object meta;
 }
-
