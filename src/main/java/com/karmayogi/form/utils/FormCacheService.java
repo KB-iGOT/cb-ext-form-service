@@ -65,6 +65,22 @@ public class FormCacheService {
         }
     }
 
+    public String getCache(String key) {
+        try {
+            return redisTemplate.opsForValue().get(key);
+        } catch (Exception e) {
+            log.error("Error while reading the cache", e);
+            return null;
+        }
+    }
+
+    public void putCache(String key,
+                         String value,
+                         long ttl,
+                         TimeUnit unit) {
+        redisTemplate.opsForValue().set(key, value, ttl, unit);
+    }
+
 
 }
 
