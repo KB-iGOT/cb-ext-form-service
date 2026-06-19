@@ -3,6 +3,12 @@ package com.karmayogi.form.service;
 import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.repository.FormQuestionsRepository;
+import com.karmayogi.form.config.FormConfig;
+import com.karmayogi.form.validator.ValidatorRegistry;
+import com.karmayogi.form.validator.BaseFormValidator;
+import com.karmayogi.form.utils.FormEntityMapper;
+import com.karmayogi.form.model.FormRequest;
+import com.karmayogi.form.model.FieldMeta;
 import com.karmayogi.form.repository.FormRepository;
 import com.karmayogi.form.utils.ApiResponse;
 import com.karmayogi.form.utils.Constants;
@@ -35,6 +41,21 @@ public class FormServiceImplTest {
 
     @Mock
     private FormCacheService formCacheService;
+
+    @Mock
+    private FormConfig formConfig;
+
+    @Mock
+    private ValidatorRegistry validatorRegistry;
+
+    @Mock
+    private BaseFormValidator baseFormValidator;
+
+    @Mock
+    private FormEntityMapper formEntityMapper;
+
+    @Mock
+    private FormEventPublisher formEventPublisher;
 
     @InjectMocks
     private FormServiceImpl formService;
@@ -240,6 +261,84 @@ public class FormServiceImplTest {
         assertEquals(1, fields.size());
     }
 
+
+    @Test
+    void testCreateForm_v1_withFields_success() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setTitle("My Form");
+        request.setStatus("PUBLISH");
+        request.setContextType("form");
+
+        FieldMeta f = new FieldMeta();
+        f.setName("Question 1");
+        f.setFieldType("text");
+        f.setOrder(1);
+        f.setIsRequired(true);
+        request.setFields(List.of(f));
+
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formConfig.getV1ClientVersion()).thenReturn(1.1);
+
+        when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
+                .thenReturn(mockForm);
+        when(formEntityMapper.toFormQuestionsEntities(any(), anyString(), anyString()))
+                .thenReturn(List.of(mockQuestion));
+
+        when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockForm);
+        when(formQuestionsRepository.saveAll(any())).thenReturn(List.of(mockQuestion));
+
+        ApiResponse response = formService.createForm(request, "user-1");
+
+        Map<String, Object> resp = response.getResult();
+        assertNotNull(resp.get(Constants.RESPONSE));
+        Map<String, Object> data = (Map<String, Object>) resp.get(Constants.RESPONSE);
+        assertTrue(data.containsKey(Constants.FORM_ID));
+        // clientVersion is stored as Number (Double) in the response map - compare numerically
+        assertEquals(1.1, ((Number) data.get(Constants.CLIENT_VERSION)).doubleValue());
+        assertEquals(1, ((Number) data.get(Constants.TOTAL_FIELDS)).intValue());
+
+        verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
+        verify(formQuestionsRepository, times(1)).saveAll(any());
+        verify(formEventPublisher, times(1)).publishFormCreated(any(), any());
+    }
+
+
+    @Test
+    void testCreateForm_v2_withFields_success() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setTitle("My Form V2");
+        request.setStatus("PUBLISH");
+        request.setContextType("form");
+        request.setClientVersion(2.0f);
+
+        FieldMeta f = new FieldMeta();
+        f.setName("Q1");
+        f.setFieldType("text");
+        f.setOrder(1);
+        request.setFields(List.of(f));
+
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formConfig.getV2ClientVersion()).thenReturn(1.2);
+
+        when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
+                .thenReturn(mockFormV2);
+        when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockFormV2);
+
+        ApiResponse response = formService.createForm(request, "user-2");
+
+        Map<String, Object> resp = response.getResult();
+        assertNotNull(resp.get(Constants.RESPONSE));
+        Map<String, Object> data = (Map<String, Object>) resp.get(Constants.RESPONSE);
+        assertTrue(data.containsKey(Constants.FORM_ID));
+        assertEquals(1.2, ((Number) data.get(Constants.CLIENT_VERSION)).doubleValue());
+        assertEquals(1, ((Number) data.get(Constants.TOTAL_FIELDS)).intValue());
+
+        verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
+        verify(formQuestionsRepository, never()).saveAll(any());
+        verify(formEventPublisher, times(1)).publishFormCreated(any(), any());
+    }
 
 }
 

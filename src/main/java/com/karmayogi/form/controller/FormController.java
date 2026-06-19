@@ -1,5 +1,6 @@
 package com.karmayogi.form.controller;
 
+import com.karmayogi.form.model.FormRequest;
 import com.karmayogi.form.service.FormService;
 import com.karmayogi.form.utils.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,12 @@ public class FormController {
     public ResponseEntity<ApiResponse> getFormById(@RequestParam("formId") String formId) {
         ApiResponse response = formService.getFormById(formId);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> createForm(
+            @RequestBody FormRequest request, @RequestHeader("x-authenticated-userid") String userId) {
+        return ResponseEntity.ok(formService.createForm(request, userId));
     }
 
 }
