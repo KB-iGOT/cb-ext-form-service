@@ -130,12 +130,22 @@ public class FormServiceImpl implements FormService{
                     request, formId, userId, request.getContextType());
 
             if (isV2) {
-                form.setClientVersion(1.2);
-                form.setQuestions(CollectionUtils.isNotEmpty(request.getFields())
-                        ? request.getFields() : null);
+                form.setClientVersion(formConfig.getV2ClientVersion());
+                if (CollectionUtils.isNotEmpty(request.getFields())) {
+                    request.getFields().forEach(field -> {
+                        if (StringUtils.isBlank(field.getId())) {
+                            field.setId(UUID.randomUUID().toString());
+                        }
+                    });
+                    formEntityMapper.toFormQuestionsEntities(
+                            request.getFields(),
+                            formId,
+                            request.getStatus());
+                }
+                form.setQuestions(request.getFields());
                 log.info("createForm version=2 JSONB formId={}", formId);
             } else {
-                form.setClientVersion(1.1);
+                form.setClientVersion(formConfig.getV1ClientVersion());
                 form.setQuestions(null);
                 log.info("createForm version=1 form_questions formId={}", formId);
             }
@@ -156,7 +166,7 @@ public class FormServiceImpl implements FormService{
             formEventPublisher.publishFormCreated(form, questions);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put(FORM_ID, formId);
-            data.put(CLIENT_VERSION, isV2 ? 1.2 : 1.1);
+            data.put(CLIENT_VERSION, isV2 ? formConfig.getV2ClientVersion() : formConfig.getV1ClientVersion());
             if (CollectionUtils.isNotEmpty(request.getFields())) {
                 data.put(TOTAL_FIELDS, request.getFields().size());
             }
@@ -166,13 +176,15 @@ public class FormServiceImpl implements FormService{
             response.setResponse(responseMap);
 
             log.info("createForm success formId={} version={} fields={}",
-                    formId, isV2 ? 2 : 1,
+                    formId, isV2 ? formConfig.getV2ClientVersion() : formConfig.getV1ClientVersion(),
                     CollectionUtils.isEmpty(request.getFields())
                             ? 0 : request.getFields().size());
             return response;
 
         } catch (DataIntegrityViolationException e) {
-            log.warn("createForm constraint violation formId={}", formId, e);
+            log.warn("createForm constraint violation formId={} cause={}",
+                    formId,
+                    e.getMostSpecificCause().getMessage());
             throw e;
         } catch (Exception e) {
             log.error("createForm error formId={}: {}", formId, e.getMessage(), e);

@@ -25,7 +25,7 @@ public class FormConfig {
     private Map<String, String> dateFromMap = new HashMap<>();
     private Map<String, String> dateToMap   = new HashMap<>();
     private Map<String, String> filterFieldMap =  new HashMap<>();
-    private float v2ClientVersion;
+    private Double v2ClientVersion;
     private Set<String> allowedFieldPropertyKeys;
     private Set<String> allowedFormPropertyKeys;
     private List<String> peerSurveyContentReadFields;
@@ -41,4 +41,6 @@ public class FormConfig {
     private String allowedUrlRegex;
     private String sbUrl;
     private String userSearchEndPoint;
+    private Double v1ClientVersion;
+    private Set<String> nonQuestionFieldTypes;
 }

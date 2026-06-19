@@ -57,7 +57,10 @@ public class FormValidator extends BaseFormValidator {
             return Constants.ERR_FIELD_MISSING;
         }
 
-        if (request.getFields().size() > formConfig.getMaxFields()) {
+        long questionCount = request.getFields().stream()
+                .filter(f -> !formConfig.getNonQuestionFieldTypes().contains(f.getFieldType()))
+                .count();
+        if (questionCount > formConfig.getMaxFields()) {
             return "Maximum allowed fields size is " + formConfig.getMaxFields();
         }
 

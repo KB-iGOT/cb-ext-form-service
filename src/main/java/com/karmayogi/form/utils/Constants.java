@@ -45,7 +45,7 @@ public class Constants {
     public static final String BATCH_ID     = "batchId";
     public static final String COURSE_ID    = "courseId";
     public static final String CLIENT_VERSION  = "clientVersion";
-    public static final Double VERSION_2 = 2.0;
+    public static final Double VERSION_2 = 1.2;
     public static final String LOG_FORM_ID_BLANK    = "getFormById called with blank formId";
     public static final String LOG_CACHE_HIT        = "getFormById CACHE HIT formId={}";
     public static final String LOG_FORM_NOT_FOUND   = "getFormById NOT FOUND formId={}";

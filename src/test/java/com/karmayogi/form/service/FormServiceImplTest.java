@@ -278,6 +278,7 @@ public class FormServiceImplTest {
 
         when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
         when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formConfig.getV1ClientVersion()).thenReturn(1.1);
 
         when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
                 .thenReturn(mockForm);
@@ -293,8 +294,9 @@ public class FormServiceImplTest {
         assertNotNull(resp.get(Constants.RESPONSE));
         Map<String, Object> data = (Map<String, Object>) resp.get(Constants.RESPONSE);
         assertTrue(data.containsKey(Constants.FORM_ID));
-        assertEquals(1.1, data.get(Constants.CLIENT_VERSION));
-        assertEquals(1, data.get(Constants.TOTAL_FIELDS));
+        // clientVersion is stored as Number (Double) in the response map - compare numerically
+        assertEquals(1.1, ((Number) data.get(Constants.CLIENT_VERSION)).doubleValue());
+        assertEquals(1, ((Number) data.get(Constants.TOTAL_FIELDS)).intValue());
 
         verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
         verify(formQuestionsRepository, times(1)).saveAll(any());
@@ -318,7 +320,7 @@ public class FormServiceImplTest {
 
         when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
         when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
-        when(formConfig.getV2ClientVersion()).thenReturn(1.2f);
+        when(formConfig.getV2ClientVersion()).thenReturn(1.2);
 
         when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
                 .thenReturn(mockFormV2);
@@ -330,8 +332,8 @@ public class FormServiceImplTest {
         assertNotNull(resp.get(Constants.RESPONSE));
         Map<String, Object> data = (Map<String, Object>) resp.get(Constants.RESPONSE);
         assertTrue(data.containsKey(Constants.FORM_ID));
-        assertEquals(1.2, data.get(Constants.CLIENT_VERSION));
-        assertEquals(1, data.get(Constants.TOTAL_FIELDS));
+        assertEquals(1.2, ((Number) data.get(Constants.CLIENT_VERSION)).doubleValue());
+        assertEquals(1, ((Number) data.get(Constants.TOTAL_FIELDS)).intValue());
 
         verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
         verify(formQuestionsRepository, never()).saveAll(any());
