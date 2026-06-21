@@ -135,6 +135,7 @@ public class FormServiceImpl implements FormService{
                     request.getFields().forEach(field -> {
                         if (StringUtils.isBlank(field.getId())) {
                             field.setId(UUID.randomUUID().toString());
+                            field.setFormId(formId);
                         }
                     });
                     formEntityMapper.toFormQuestionsEntities(
@@ -163,7 +164,7 @@ public class FormServiceImpl implements FormService{
                 log.info("createForm questions saved formId={} count={}",
                         formId, questions.size());
             }
-            formEventPublisher.publishFormCreated(form, questions);
+            formEventPublisher.publishFormCreated(form, request.getFields());
             Map<String, Object> data = new LinkedHashMap<>();
             data.put(FORM_ID, formId);
             data.put(CLIENT_VERSION, isV2 ? formConfig.getV2ClientVersion() : formConfig.getV1ClientVersion());
