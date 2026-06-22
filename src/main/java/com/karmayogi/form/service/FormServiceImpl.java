@@ -3,8 +3,7 @@ package com.karmayogi.form.service;
 import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
-import com.karmayogi.form.model.FieldUpdateResult;
-import com.karmayogi.form.model.FormRequest;
+import com.karmayogi.form.model.*;
 import com.karmayogi.form.repository.FormQuestionsRepository;
 import com.karmayogi.form.repository.FormRepository;
 import com.karmayogi.form.utils.*;
@@ -14,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -44,7 +45,8 @@ public class FormServiceImpl implements FormService{
     private final FormEventPublisher formEventPublisher;
     private final FormUpdateHelper formUpdateHelper;
     private final FormCreateHelper formCreateHelper;
-
+    private final FormSearchHelper formSearchHelper;
+    private final RestHighLevelClient esClient;
 
     @Override
     public Map<String, Object> searchForms(Map<String, Object> request) {
@@ -235,6 +237,69 @@ public class FormServiceImpl implements FormService{
         } catch (Exception e) {
             log.error("updateForm error formId={}: {}", formId, e.getMessage(), e);
             return buildError(response,
+                    ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ApiResponse searchForms(SearchCriteria criteria) {
+
+        ApiResponse response = new ApiResponse(API_SEARCH_FORM);
+
+        try {
+            log.info("searchForms started criteria={}", criteria);
+
+            String filterError =
+                    formSearchHelper.validateFilters(criteria.getFilters());
+
+            if (filterError != null) {
+                return buildError(response, filterError, HttpStatus.BAD_REQUEST);
+            }
+
+            SearchPageRequest pageRequest =
+                    formSearchHelper.validateAndBuildPageRequest(criteria);
+
+            if (pageRequest.error() != null) {
+                return buildError(
+                        response,
+                        pageRequest.error(),
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            SearchResponse searchResponse =
+                    formSearchHelper.search(criteria, pageRequest);
+
+            SearchResultData resultData =
+                    formSearchHelper.extractSearchResults(searchResponse);
+
+            List<Map<String, Object>> finalResults =
+                    formSearchHelper.enrichResults(
+                            resultData.forms(),
+                            resultData.formIds(),
+                            criteria,
+                            pageRequest.size());
+
+            Map<String, Object> content = new HashMap<>();
+            content.put(COUNT, searchResponse.getHits().getTotalHits());
+            content.put(CONTENT, finalResults);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, content);
+
+            response.setResponse(responseMap);
+
+            log.info("searchForms completed totalHits={} returned={}",
+                    searchResponse.getHits().getTotalHits(),
+                    finalResults.size());
+
+            return response;
+
+        } catch (Exception e) {
+            log.error("searchForms error: {}", e.getMessage(), e);
+
+            return buildError(
+                    response,
                     ERR_INTERNAL + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
