@@ -381,4 +381,32 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse getAllApplications(String formId) {
+        ApiResponse response = new ApiResponse(API_GET_ALL_APPLICATIONS);
+        try {
+            log.info("getAllApplications formId={}", formId);
+
+            if (StringUtils.isBlank(formId))
+                return buildError(response, ERR_FORM_ID_REQUIRED, HttpStatus.BAD_REQUEST);
+
+
+            List<Map<String, Object>> results = formSubmissionHelper.getAllApplications(formId);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(COUNT, results.size());
+            responseMap.put(RESPONSE, results.isEmpty() ? new HashMap<>() : results);
+            response.setResponse(responseMap);
+
+            log.info("getAllApplications formId={} count={}", formId, results.size());
+            return response;
+
+        } catch (Exception e) {
+            log.error("getAllApplications error formId={}: {}", formId, e.getMessage(), e);
+            return buildError(response,
+                    ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
