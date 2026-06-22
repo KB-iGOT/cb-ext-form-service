@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+import static com.karmayogi.form.utils.Constants.*;
+
 /**
  * @author anil
  */
@@ -35,19 +37,19 @@ public class FormSubmissionHelper {
                            boolean isAnonymousUser) {
         if (!isAnonymousUser) {
             if (StringUtils.isBlank(userId)) {
-                return Constants.ERR_INVALID_USER_ID;
+                return ERR_INVALID_USER_ID;
             }
             try {
                 Map<String, Object> userData = userUtils.getUsersReadData(userId);
                 if (MapUtils.isEmpty(userData)) {
-                    return Constants.ERR_INVALID_USER_ID;
+                    return ERR_INVALID_USER_ID;
                 }
                 userInfo.put(Constants.FULL_NAME,
                         StringUtils.defaultString(
                                 (String) userData.get(Constants.FIRST_NAME)));
             } catch (Exception e) {
                 log.error("validate user lookup failed userId={}: {}", userId, e.getMessage());
-                return Constants.ERR_INVALID_USER_ID;
+                return ERR_INVALID_USER_ID;
             }
         }
 
@@ -194,6 +196,46 @@ public class FormSubmissionHelper {
         publicFormSubmissionRepository.save(submission);
         log.info("saveAnonymous saved submissionId={}", submission.getSubmissionId());
         return submission.getSubmissionId();
+    }
+
+    public Map<String, Object> findSavedForm(String formId, String status,
+                                             String userId, String contextId) {
+        Optional<FormSubmission> result = StringUtils.isBlank(status)
+                ? formSubmissionRepository.findLatestByFormIdAndUserIdAndContextId(
+                formId, userId, StringUtils.defaultString(contextId))
+                : formSubmissionRepository.findLatestByFormIdAndUserIdAndContextIdAndStatus(
+                formId, userId, StringUtils.defaultString(contextId), status);
+
+        return result.map(submission -> {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("submissionId",   submission.getSubmissionId());
+            data.put("formId",         submission.getFormId());
+            data.put("status",         submission.getStatus());
+            data.put("submittedBy",    submission.getSubmittedBy());
+            data.put("submittedDate",  submission.getSubmittedDate());
+            data.put("contextId",      submission.getContextId());
+            data.put("contextName",    submission.getContextName());
+            data.put("contextType",    submission.getContextType());
+            data.put("version",        submission.getVersion());
+            data.put("responses",      submission.getResponses());
+            data.put("submissionMeta", submission.getSubmissionMeta());
+            return data;
+        }).orElse(null);
+    }
+
+    public String validateGetSavedForm(String formId, String contextId,
+                                       String userId) {
+        if (StringUtils.isBlank(formId))    return ERR_FORM_ID_REQUIRED;
+        if (StringUtils.isBlank(contextId)) return ERR_CONTEXT_ID_MISSING;
+        if (StringUtils.isBlank(userId))    return ERR_INVALID_USER_ID;
+        try {
+            Map<String, Object> userData = userUtils.getUsersReadData(userId);
+            if (MapUtils.isEmpty(userData)) return ERR_INVALID_USER_ID;
+        } catch (Exception e) {
+            log.error("validateGetSavedForm user lookup failed userId={}: {}", userId, e.getMessage());
+            return ERR_INVALID_USER_ID;
+        }
+        return null;
     }
 
 }

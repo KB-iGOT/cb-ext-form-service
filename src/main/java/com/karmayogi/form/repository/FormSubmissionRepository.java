@@ -36,4 +36,19 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
             @Param("formId") String formId,
             @Param("userId") String userId,
             @Param("contextId") String contextId);
+
+    @Query(value = """
+            SELECT * FROM form_submissions
+            WHERE formid = :formId
+            AND submittedby = :userId
+            AND contextid = :contextId
+            AND status = :status
+            ORDER BY submitteddate DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<FormSubmission> findLatestByFormIdAndUserIdAndContextIdAndStatus(
+            @Param("formId") String formId,
+            @Param("userId") String userId,
+            @Param("contextId") String contextId,
+            @Param("status") String status);
 }
