@@ -159,6 +159,10 @@ public class Constants {
     public static final String UPDATED_FIELDS_COUNT = "updatedFieldsCount";
     public static final String DELETED_FIELDS_COUNT = "deletedFieldsCount";
     public static final String FIELD_ID = "fieldId";
+    public static final String API_SEARCH_FORM    = "api.search.v3";
+    public static final String SUBMISSION_COUNT   = "submissionCount";
+    public static final String DESC               = "DESC";
+    public static final String ID = "id";
 
 
     private Constants() {}

@@ -43,4 +43,12 @@ public class FormConfig {
     private String userSearchEndPoint;
     private Double v1ClientVersion;
     private Set<String> nonQuestionFieldTypes;
+    private int searchMaxPage;
+    private int searchMaxPageSize;
+    private int searchDefaultPageSize;
+    private int esTimeoutSeconds;
+    private String searchIndex;
+    private List<String> searchSupportedContextTypes;
+    private List<String> searchAllowedFilterKeys;
+
 }
