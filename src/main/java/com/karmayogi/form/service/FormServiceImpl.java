@@ -351,4 +351,34 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse getUserSavedForm(String formId, String status, String userId, String contextId) {
+        ApiResponse response = new ApiResponse(API_GET_SAVED_FORM);
+        try {
+            log.info("getUserSavedForm formId={} status={} userId={}",
+                    formId, status, userId);
+
+            String error = formSubmissionHelper.validateGetSavedForm(formId, contextId, userId);
+            if (error != null)
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+
+            Map<String, Object> data = formSubmissionHelper.findSavedForm(formId, status, userId, contextId);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data != null ? data : new HashMap<>());
+            response.setResponse(responseMap);
+
+            log.info("getUserSavedForm completed formId={} userId={} found={}",
+                    formId, userId, data != null);
+            return response;
+
+        } catch (Exception e) {
+            log.error("getUserSavedForm error formId={} userId={}: {}",
+                    formId, userId, e.getMessage(), e);
+            return buildError(response,
+                    ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

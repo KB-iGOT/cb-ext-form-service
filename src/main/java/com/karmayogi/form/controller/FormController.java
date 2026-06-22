@@ -52,4 +52,13 @@ public class FormController {
         return ResponseEntity.ok(formService.submitForm(request, userId, false));
     }
 
+    @GetMapping("/getApplicationsById")
+    public ResponseEntity<ApiResponse> getUserSavedForm(
+            @RequestParam String formId,
+            @RequestParam(required = false) String status,
+            @RequestParam String contextId,
+            @RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId) {
+        return ResponseEntity.ok(formService.getUserSavedForm(formId, status, userId, contextId));
+    }
+
 }
