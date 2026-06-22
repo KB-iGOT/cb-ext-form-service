@@ -238,4 +238,27 @@ public class FormSubmissionHelper {
         return null;
     }
 
+    public List<Map<String, Object>> getAllApplications(String formId) {
+        return formSubmissionRepository.findAllSubmittedByFormId(formId)
+                .stream()
+                .map(s -> {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("submissionId",   s.getSubmissionId());
+                    data.put("formId",         s.getFormId());
+                    data.put("userId",         s.getUserId());
+                    data.put("status",         s.getStatus());
+                    data.put("fullName",       s.getFullName());
+                    data.put("submittedBy",    s.getSubmittedBy());
+                    data.put("submittedDate",  s.getSubmittedDate());
+                    data.put("contextId",      s.getContextId());
+                    data.put("contextName",    s.getContextName());
+                    data.put("contextType",    s.getContextType());
+                    data.put("version",        s.getVersion());
+                    data.put("responses",      s.getResponses());
+                    data.put("submissionMeta", s.getSubmissionMeta());
+                    return data;
+                })
+                .toList();
+    }
+
 }

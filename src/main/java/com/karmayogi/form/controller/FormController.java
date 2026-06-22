@@ -5,6 +5,7 @@ import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.SearchCriteria;
 import com.karmayogi.form.service.FormService;
 import com.karmayogi.form.utils.ApiResponse;
+import com.karmayogi.form.utils.Constants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -61,4 +62,9 @@ public class FormController {
         return ResponseEntity.ok(formService.getUserSavedForm(formId, status, userId, contextId));
     }
 
+    @GetMapping(value = "/getAllApplications")
+    public ResponseEntity<ApiResponse> getAllSubmittedApplications(
+            @RequestParam(value = Constants.FORM_ID) String formId) {
+        return ResponseEntity.ok(formService.getAllApplications(formId));
+    }
 }
