@@ -155,6 +155,10 @@ public class Constants {
     public static final String ERR_ASSIGNMENT_URL_MISSING = "AssignmentUrl is required";
     public static final String INVALID_CONTEXT_TYPE = "Invalid contextType";
     public static final String ERR_DUPLICATE_ASSIGNMENT_BATCH = "A published assignment already exists for this batchId";
+    public static final String CREATED_FIELDS_COUNT = "createdFieldsCount";
+    public static final String UPDATED_FIELDS_COUNT = "updatedFieldsCount";
+    public static final String DELETED_FIELDS_COUNT = "deletedFieldsCount";
+    public static final String FIELD_ID = "fieldId";
 
 
     private Constants() {}

@@ -4,6 +4,7 @@ import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.repository.FormQuestionsRepository;
 import com.karmayogi.form.config.FormConfig;
+import com.karmayogi.form.model.FieldUpdateResult;
 import com.karmayogi.form.utils.*;
 import com.karmayogi.form.validator.ValidatorRegistry;
 import com.karmayogi.form.validator.BaseFormValidator;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
 import java.util.*;
@@ -53,6 +55,12 @@ public class FormServiceImplTest {
 
     @Mock
     private FormEventPublisher formEventPublisher;
+
+    @Mock
+    private FormUpdateHelper formUpdateHelper;
+
+    @Mock
+    private FormCreateHelper formCreateHelper;
 
     @InjectMocks
     private FormServiceImpl formService;
@@ -279,11 +287,9 @@ public class FormServiceImplTest {
 
         when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
                 .thenReturn(mockForm);
-        when(formEntityMapper.toFormQuestionsEntities(any(), anyString(), anyString()))
-                .thenReturn(List.of(mockQuestion));
+        doNothing().when(formCreateHelper).prepareV1Form(any(Forms.class));
 
         when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockForm);
-        when(formQuestionsRepository.saveAll(any())).thenReturn(List.of(mockQuestion));
 
         ApiResponse response = formService.createForm(request, "user-1");
 
@@ -296,7 +302,6 @@ public class FormServiceImplTest {
         assertEquals(1, ((Number) data.get(Constants.TOTAL_FIELDS)).intValue());
 
         verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
-        verify(formQuestionsRepository, times(1)).saveAll(any());
         verify(formEventPublisher, times(1)).publishFormCreated(any(), any());
     }
 
@@ -321,6 +326,8 @@ public class FormServiceImplTest {
 
         when(formEntityMapper.toFormsEntity(any(), anyString(), anyString(), anyString()))
                 .thenReturn(mockFormV2);
+        doNothing().when(formCreateHelper).prepareV2Form(any(Forms.class), any(FormRequest.class), anyString());
+
         when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockFormV2);
 
         ApiResponse response = formService.createForm(request, "user-2");
@@ -335,6 +342,236 @@ public class FormServiceImplTest {
         verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
         verify(formQuestionsRepository, never()).saveAll(any());
         verify(formEventPublisher, times(1)).publishFormCreated(any(), any());
+    }
+
+    @Test
+    void testUpdateForm_success_allFieldsChanged() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+        request.setStatus("DRAFT");
+
+        FieldMeta field1 = new FieldMeta();
+        field1.setName("Updated Question 1");
+        field1.setFieldType("text");
+        field1.setOrder(1);
+        request.setFields(List.of(field1));
+
+        FieldUpdateResult fieldResult = new FieldUpdateResult(1, 2, 1, Set.of());
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formUpdateHelper.updateFields(any(Forms.class), any(FormRequest.class))).thenReturn(fieldResult);
+        when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockForm);
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertEquals(Constants.STATUS_SUCCESS, response.getParams().getStatus());
+
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        assertNotNull(result);
+        assertEquals(FORM_ID, result.get(Constants.FORM_ID));
+        assertEquals(1, result.get(Constants.CREATED_FIELDS_COUNT));
+        assertEquals(2, result.get(Constants.UPDATED_FIELDS_COUNT));
+        assertEquals(1, result.get(Constants.DELETED_FIELDS_COUNT));
+
+        verify(formRepository, times(1)).saveAndFlush(any(Forms.class));
+        verify(formCacheService, times(1)).invalidate(FORM_ID);
+        verify(formEventPublisher, times(1)).publishFormUpdated(any(Forms.class), any(), any());
+    }
+
+    @Test
+    void testUpdateForm_blankFormId_returns400() {
+        FormRequest request = new FormRequest();
+        request.setFormId("");
+        request.setTitle("Updated Form");
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertEquals(Constants.ERR_FORM_ID_REQUIRED,
+                response.getParams().getErrMsg());
+
+        verify(formRepository, never()).findById(anyString());
+    }
+
+    @Test
+    void testUpdateForm_nullFormId_returns400() {
+        FormRequest request = new FormRequest();
+        request.setFormId(null);
+        request.setTitle("Updated Form");
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertEquals(Constants.ERR_FORM_ID_REQUIRED,
+                response.getParams().getErrMsg());
+    }
+
+    @Test
+    void testUpdateForm_formNotFound_returns404() {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.empty());
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertTrue(response.getParams().getErrMsg()
+                .contains(Constants.ERR_FORM_NOT_FOUND));
+
+        verify(validatorRegistry, never()).getValidator(anyString());
+    }
+
+    @Test
+    void testUpdateForm_invalidContextType_returns400() {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(null);
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertEquals(Constants.ERR_INVALID_CONTEXT_TYPE,
+                response.getParams().getErrMsg());
+
+        verify(formUpdateHelper, never()).updateFields(any(), any());
+    }
+
+    @Test
+    void testUpdateForm_validationFailed_returns400() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+
+        String validationError = "Title is required and cannot be empty";
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString()))
+                .thenReturn(validationError);
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertEquals(validationError, response.getParams().getErrMsg());
+
+        verify(formUpdateHelper, never()).updateFields(any(), any());
+        verify(formRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void testUpdateForm_noFieldChanges() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+        request.setFields(Collections.emptyList());
+
+        FieldUpdateResult fieldResult = new FieldUpdateResult(0, 0, 0, Set.of());
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formUpdateHelper.updateFields(any(Forms.class), any(FormRequest.class))).thenReturn(fieldResult);
+        when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockForm);
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        assertEquals(0, result.get(Constants.CREATED_FIELDS_COUNT));
+        assertEquals(0, result.get(Constants.UPDATED_FIELDS_COUNT));
+        assertEquals(0, result.get(Constants.DELETED_FIELDS_COUNT));
+
+        verify(formCacheService, times(1)).invalidate(FORM_ID);
+    }
+
+    @Test
+    void testUpdateForm_repositoryException_returns500() {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+
+        when(formRepository.findById(FORM_ID)).thenThrow(
+                new RuntimeException("Database connection failed"));
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+        assertEquals(Constants.STATUS_FAILED, response.getParams().getStatus());
+        assertTrue(response.getParams().getErrMsg()
+                .contains(Constants.ERR_INTERNAL));
+    }
+
+    @Test
+    void testUpdateForm_dataIntegrityViolation_throwsException() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Updated Form");
+
+        FieldUpdateResult fieldResult = new FieldUpdateResult(0, 1, 0, Set.of());
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formUpdateHelper.updateFields(any(Forms.class), any(FormRequest.class))).thenReturn(fieldResult);
+        when(formRepository.saveAndFlush(any(Forms.class)))
+                .thenThrow(new DataIntegrityViolationException("Unique constraint violated"));
+
+        assertThrows(DataIntegrityViolationException.class, () ->
+                formService.updateForm(request, "user-1"));
+    }
+
+    @Test
+    void testUpdateForm_multipleFieldsUpdate_success() throws Exception {
+        FormRequest request = new FormRequest();
+        request.setFormId(FORM_ID);
+        request.setTitle("Multi-field Update");
+
+        FieldMeta field1 = new FieldMeta();
+        field1.setName("Q1");
+        field1.setFieldType("text");
+        field1.setOrder(1);
+
+        FieldMeta field2 = new FieldMeta();
+        field2.setName("Q2");
+        field2.setFieldType("select");
+        field2.setOrder(2);
+
+        request.setFields(List.of(field1, field2));
+
+        FieldUpdateResult fieldResult = new FieldUpdateResult(2, 3, 1, Set.of("stale-1"));
+
+        when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(mockForm));
+        when(validatorRegistry.getValidator("form")).thenReturn(baseFormValidator);
+        when(baseFormValidator.validate(any(FormRequest.class), anyString())).thenReturn(null);
+        when(formUpdateHelper.updateFields(any(Forms.class), any(FormRequest.class))).thenReturn(fieldResult);
+        when(formRepository.saveAndFlush(any(Forms.class))).thenReturn(mockForm);
+
+        ApiResponse response = formService.updateForm(request, "user-1");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+
+        Map<String, Object> result = (Map<String, Object>) response.get(Constants.RESPONSE);
+        assertEquals(2, result.get(Constants.CREATED_FIELDS_COUNT));
+        assertEquals(3, result.get(Constants.UPDATED_FIELDS_COUNT));
+        assertEquals(1, result.get(Constants.DELETED_FIELDS_COUNT));
+
+        verify(formEventPublisher, times(1))
+                .publishFormUpdated(any(Forms.class), any(), any());
     }
 
 }

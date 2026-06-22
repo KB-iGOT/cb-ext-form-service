@@ -10,8 +10,7 @@ import java.util.List;
  * @author anil
  */
 @Repository
-public interface FormQuestionsRepository extends JpaRepository<FormQuestions, Integer> {
+public interface FormQuestionsRepository extends JpaRepository<FormQuestions, String> {
 
     List<FormQuestions> findByFormIdOrderByQuestionOrderAsc(String formId);
-
 }

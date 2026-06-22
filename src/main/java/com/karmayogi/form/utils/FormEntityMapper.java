@@ -178,4 +178,50 @@ public class FormEntityMapper {
         }
     }
 
+
+    public Long parseEndDate(String endDate) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(endDate)) return null;
+        try {
+            return Long.parseLong(endDate);
+        } catch (NumberFormatException e) {
+            try {
+                java.time.LocalDate date = java.time.LocalDate.parse(endDate);
+                return date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli();
+            } catch (Exception ex) {
+                return null;
+            }
+        }
+    }
+
+    public void populateFieldIds(List<FieldMeta> fields) {
+        if (CollectionUtils.isEmpty(fields)) {
+            return;
+        }
+        fields.forEach(f -> {
+            if (StringUtils.isBlank(f.getId())) {
+                f.setId(UUID.randomUUID().toString());
+            }
+        });
+    }
+
+    public void applyUpdateFields(Forms form, FormRequest request, String userId) {
+        long now = System.currentTimeMillis();
+        if (StringUtils.isNotBlank(request.getTitle()))
+            form.setTitle(request.getTitle());
+        if (request.getMeta() != null)
+            form.setMeta(request.getMeta());
+        if (CollectionUtils.isNotEmpty(request.getMandatoryFields()))
+            form.setMandatoryFields(request.getMandatoryFields());
+        if (MapUtils.isNotEmpty(request.getAdditionalProperties()))
+            form.setAdditionalProperties(request.getAdditionalProperties());
+        if (StringUtils.isNotBlank(request.getEndDate()))
+            form.setEndDate(parseEndDate(request.getEndDate()));
+        if (request.getClientVersion() != null)
+            form.setClientVersion(request.getClientVersion().doubleValue());
+        if (StringUtils.isNotBlank(request.getStatus()))
+            form.setStatus(request.getStatus());
+        form.setUpdatedBy(userId);
+        form.setUpdatedAt(now);
+    }
+
 }

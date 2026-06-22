@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static com.karmayogi.form.utils.ResponseUtil.buildResponse;
@@ -42,6 +43,12 @@ public class FormController {
     public ResponseEntity<ApiResponse> createForm(
             @RequestBody FormRequest request, @RequestHeader("x-authenticated-userid") String userId) {
         return ResponseEntity.ok(formService.createForm(request, userId));
+    }
+
+    @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> updateForm(
+            @RequestBody FormRequest request, @RequestHeader("x-authenticated-userid") String userId) {
+        return ResponseEntity.ok(formService.updateForm(request, userId));
     }
 
 }

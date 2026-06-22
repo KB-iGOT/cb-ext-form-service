@@ -3,6 +3,7 @@ package com.karmayogi.form.service;
 import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
+import com.karmayogi.form.model.FieldUpdateResult;
 import com.karmayogi.form.model.FormRequest;
 import com.karmayogi.form.repository.FormQuestionsRepository;
 import com.karmayogi.form.repository.FormRepository;
@@ -41,6 +42,8 @@ public class FormServiceImpl implements FormService{
     private final ValidatorRegistry validatorRegistry;
     private final FormEntityMapper formEntityMapper;
     private final FormEventPublisher formEventPublisher;
+    private final FormUpdateHelper formUpdateHelper;
+    private final FormCreateHelper formCreateHelper;
 
 
     @Override
@@ -111,12 +114,18 @@ public class FormServiceImpl implements FormService{
         String formId = UUID.randomUUID().toString();
 
         try {
-            log.info("createForm started formId={} contextType={}",
-                    formId, request.getContextType());
-
+            log.info("createForm started formId={} userId={} contextType={}",
+                    formId, userId, request.getContextType());
             BaseFormValidator validator = validatorRegistry.getValidator(request.getContextType());
-            String error = (validator != null) ? validator.validate(request, userId) : ERR_INVALID_CONTEXT_TYPE;
-            if (StringUtils.isNotEmpty(error)) {
+            if (validator == null) {
+                log.warn("createForm no validator found for contextType={}",
+                        request.getContextType());
+                return buildError(response,
+                        ERR_INVALID_CONTEXT_TYPE, HttpStatus.BAD_REQUEST);
+            }
+
+            String error = validator.validate(request, userId);
+            if (error != null) {
                 log.warn("createForm validation failed formId={}: {}", formId, error);
                 return buildError(response, error, HttpStatus.BAD_REQUEST);
             }
@@ -130,24 +139,10 @@ public class FormServiceImpl implements FormService{
                     request, formId, userId, request.getContextType());
 
             if (isV2) {
-                form.setClientVersion(formConfig.getV2ClientVersion());
-                if (CollectionUtils.isNotEmpty(request.getFields())) {
-                    request.getFields().forEach(field -> {
-                        if (StringUtils.isBlank(field.getId())) {
-                            field.setId(UUID.randomUUID().toString());
-                            field.setFormId(formId);
-                        }
-                    });
-                    formEntityMapper.toFormQuestionsEntities(
-                            request.getFields(),
-                            formId,
-                            request.getStatus());
-                }
-                form.setQuestions(request.getFields());
+                formCreateHelper.prepareV2Form(form, request, formId);
                 log.info("createForm version=2 JSONB formId={}", formId);
             } else {
-                form.setClientVersion(formConfig.getV1ClientVersion());
-                form.setQuestions(null);
+                formCreateHelper.prepareV1Form(form);
                 log.info("createForm version=1 form_questions formId={}", formId);
             }
 
@@ -157,38 +152,88 @@ public class FormServiceImpl implements FormService{
 
             formRepository.saveAndFlush(form);
             log.info("createForm forms saved formId={}", formId);
-            List<FormQuestions> questions = null;
-            if (!isV2 && CollectionUtils.isNotEmpty(request.getFields())) {
-                 questions = formEntityMapper.toFormQuestionsEntities(request.getFields(), formId, request.getStatus());
-                formQuestionsRepository.saveAll(questions);
-                log.info("createForm questions saved formId={} count={}",
-                        formId, questions.size());
-            }
+            formCreateHelper.saveV1Questions(request, formId, isV2);
             formEventPublisher.publishFormCreated(form, request.getFields());
+
             Map<String, Object> data = new LinkedHashMap<>();
             data.put(FORM_ID, formId);
+            data.put(VERSION, isV2 ? 2 : 1);
             data.put(CLIENT_VERSION, isV2 ? formConfig.getV2ClientVersion() : formConfig.getV1ClientVersion());
             if (CollectionUtils.isNotEmpty(request.getFields())) {
                 data.put(TOTAL_FIELDS, request.getFields().size());
             }
 
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data);
-            response.setResponse(responseMap);
-
             log.info("createForm success formId={} version={} fields={}",
-                    formId, isV2 ? formConfig.getV2ClientVersion() : formConfig.getV1ClientVersion(),
+                    formId, isV2 ? 2 : 1,
                     CollectionUtils.isEmpty(request.getFields())
                             ? 0 : request.getFields().size());
-            return response;
+            return buildSuccess(response, data);
 
         } catch (DataIntegrityViolationException e) {
-            log.warn("createForm constraint violation formId={} cause={}",
-                    formId,
-                    e.getMostSpecificCause().getMessage());
-            throw e;
+           throw e;
         } catch (Exception e) {
             log.error("createForm error formId={}: {}", formId, e.getMessage(), e);
+            return buildError(response,
+                    ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    @Override
+    public ApiResponse updateForm(FormRequest request, String userId) {
+
+        ApiResponse response = new ApiResponse(API_UPDATE_FORM);
+        String formId = request.getFormId();
+
+        try {
+            log.info("updateForm started formId={} userId={}", formId, userId);
+
+            if (StringUtils.isBlank(formId)) {
+                return buildError(response, ERR_FORM_ID_REQUIRED, HttpStatus.BAD_REQUEST);
+            }
+
+            Optional<Forms> formOpt = formRepository.findById(formId);
+            if (formOpt.isEmpty()) {
+                log.warn("updateForm formId={} not found", formId);
+                return buildError(response,
+                        ERR_FORM_NOT_FOUND + formId, HttpStatus.NOT_FOUND);
+            }
+            Forms form = formOpt.get();
+
+            BaseFormValidator validator = validatorRegistry.getValidator(form.getContextType());
+            if (validator == null) {
+                return buildError(response, ERR_INVALID_CONTEXT_TYPE, HttpStatus.BAD_REQUEST);
+            }
+            String error = validator.validate(request, userId);
+            if (error != null) {
+                log.warn("updateForm validation failed formId={}: {}", formId, error);
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+            }
+
+            formEntityMapper.applyUpdateFields(form, request, userId);
+
+            FieldUpdateResult fieldResult = formUpdateHelper.updateFields(form, request);
+
+            formRepository.saveAndFlush(form);
+            log.info("updateForm form saved formId={}", formId);
+            formCacheService.invalidate(formId);
+            formEventPublisher.publishFormUpdated(form, request.getFields(), fieldResult.staleFieldIds());
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(FORM_ID, formId);
+            data.put(CREATED_FIELDS_COUNT, fieldResult.createdCount());
+            data.put(UPDATED_FIELDS_COUNT, fieldResult.updatedCount());
+            data.put(DELETED_FIELDS_COUNT, fieldResult.deletedCount());
+
+            log.info("updateForm success formId={} created={} updated={} deleted={}",
+                    formId, fieldResult.createdCount(),
+                    fieldResult.updatedCount(), fieldResult.deletedCount());
+            return buildSuccess(response, data);
+
+        } catch (DataIntegrityViolationException e) {
+          throw e;
+        } catch (Exception e) {
+            log.error("updateForm error formId={}: {}", formId, e.getMessage(), e);
             return buildError(response,
                     ERR_INTERNAL + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
