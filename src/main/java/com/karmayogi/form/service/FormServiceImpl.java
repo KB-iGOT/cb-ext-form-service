@@ -14,7 +14,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -46,7 +45,7 @@ public class FormServiceImpl implements FormService{
     private final FormUpdateHelper formUpdateHelper;
     private final FormCreateHelper formCreateHelper;
     private final FormSearchHelper formSearchHelper;
-    private final RestHighLevelClient esClient;
+    private final FormSubmissionHelper formSubmissionHelper;
 
     @Override
     public Map<String, Object> searchForms(Map<String, Object> request) {
@@ -301,6 +300,54 @@ public class FormServiceImpl implements FormService{
             return buildError(
                     response,
                     ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ApiResponse submitForm(FormSubmissionRequest request,
+                                  String userId,
+                                  boolean isAnonymousUser) {
+        ApiResponse response = new ApiResponse(API_SUBMIT_FORM);
+        try {
+            log.info("submitForm started formId={} userId={} anonymous={}", request.getFormId(), userId, isAnonymousUser);
+
+            Map<String, Object> userInfo = new HashMap<>();
+            String error = formSubmissionHelper.validate(request, userId, userInfo, isAnonymousUser);
+            if (error != null) {
+                log.warn("submitForm validation failed formId={}: {}", request.getFormId(), error);
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+            }
+
+            String status = StringUtils.isBlank(request.getStatus()) ? SUBMITTED : request.getStatus().toUpperCase();
+
+
+            List<Map<String, Object>> normalizedResponses = formSubmissionHelper.normalizeResponses(request.getResponses());
+
+            String contextType = StringUtils.isBlank(request.getContextType()) ? FORM : request.getContextType().trim();
+
+
+            String submissionId = isAnonymousUser
+                                    ? formSubmissionHelper.saveAnonymous(request, status, contextType, normalizedResponses)
+                                    : formSubmissionHelper.saveAuthenticated(request, userId, status, contextType, normalizedResponses, userInfo);
+
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, submissionId);
+            data.put(FORM_ID, request.getFormId());
+            data.put(SAVED_STATUS, status);
+            data.put(RESPONSES_COUNT, request.getResponses() != null ? request.getResponses().size() : 0);
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+            log.info("submitForm success formId={} submissionId={} status={}", request.getFormId(), submissionId, status);
+            return response;
+
+        } catch (Exception e) {
+            log.error("submitForm error formId={}: {}", request.getFormId(),
+                    e.getMessage(), e);
+            return buildError(response,
+                    "Error while submitting form: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

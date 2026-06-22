@@ -1,6 +1,7 @@
 package com.karmayogi.form.service;
 
 import com.karmayogi.form.model.FormRequest;
+import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.SearchCriteria;
 import com.karmayogi.form.utils.ApiResponse;
 
@@ -12,4 +13,5 @@ public interface FormService {
         ApiResponse createForm(FormRequest request, String userId);
         ApiResponse updateForm(FormRequest request, String userId);
         ApiResponse searchForms(SearchCriteria criteria);
+        ApiResponse submitForm(FormSubmissionRequest request, String userId, boolean isAnonymousUser);
 }

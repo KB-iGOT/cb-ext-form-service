@@ -16,8 +16,8 @@ import java.util.Map;
  */
 @Data
 @Entity
-@Table(name = "form_submissions")
-public class FormSubmission {
+@Table(name = "public_form_submissions")
+public class PublicFormSubmission {
 
     @Id
     @Column(name = "submissionid")
@@ -26,8 +26,8 @@ public class FormSubmission {
     @Column(name = "formid")
     private String formId;
 
-    @Column(name = "userid")
-    private String userId;
+    @Column(name = "email")
+    private String email;
 
     @Column(name = "contextid")
     private String contextId;
@@ -37,9 +37,6 @@ public class FormSubmission {
 
     @Column(name = "fullname")
     private String fullName;
-
-    @Column(name = "submittedby")
-    private String submittedBy;
 
     @Column(name = "submitteddate")
     private Long submittedDate;
@@ -70,14 +67,7 @@ public class FormSubmission {
     private List<Map<String, Object>> responses;
 
     @Type(JsonBinaryType.class)
-    @Column(name = "attachments", columnDefinition = "jsonb")
-    private List<String> attachments;
-
-    @Type(JsonBinaryType.class)
-    @Column(name = "peerreviews", columnDefinition = "jsonb")
-    private Object peerReviews;
-
-    @Type(JsonBinaryType.class)
     @Column(name = "submissionmeta", columnDefinition = "jsonb")
     private Map<String, Object> submissionMeta;
+
 }

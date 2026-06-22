@@ -163,6 +163,25 @@ public class Constants {
     public static final String SUBMISSION_COUNT   = "submissionCount";
     public static final String DESC               = "DESC";
     public static final String ID = "id";
+    public static final String SUBMITTED_CAPS = "SUBMITTED";
+    public static final String FULL_NAME = "fullName";
+    public static final String DOCUMENT_ID = "documentId";
+    public static final String FIRST_NAME = "firstName";
+    public static final String ERR_FORM_ID_MISSING          = "formId is required";
+    public static final String ERR_STATUS_MISSING           = "status is required";
+    public static final String ERR_INVALID_STATUS           = "Invalid submission status. Allowed: DRAFT, SUBMITTED";
+    public static final String ERR_RESPONSES_MISSING        = "responses are required for SUBMITTED status";
+    public static final String ERR_INVALID_USER_SUBMISSION  = "Invalid user submission at index ";
+    public static final String ERR_QUESTION_TEXT_MISSING    = "Question text missing at index ";
+    public static final String ERR_QUESTION_ID_MISSING      = "Question ID missing at index ";
+    public static final String ERR_ANSWER_TYPE_MISSING      = "Answer type missing for question: ";
+    public static final String API_SUBMIT_FORM              = "api.saveFormSubmit.v3";
+    public static final String DRAFT                        = "DRAFT";
+    public static final String SUBMITTED                    = "SUBMITTED";
+    public static final String RESPONSES_COUNT              = "responsesCount";
+    public static final String SAVED_STATUS                 = "savedStatus";
+    public static final String FORM = "form";
+    public static final String X_AUTHENTICATED_USER_ID     = "x-authenticated-userid";
 
 
     private Constants() {}
