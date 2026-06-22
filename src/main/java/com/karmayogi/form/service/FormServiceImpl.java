@@ -409,4 +409,30 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse searchUserFeedbackForms(SearchCriteria criteria) {
+        ApiResponse response = new ApiResponse(API_SUBMISSION_SEARCH);
+        try {
+            log.info("searchUserFeedbackForms criteria={}", criteria);
+
+            String error = formSubmissionHelper.validateSubmissionSearch(criteria);
+            if (error != null)
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+
+            Map<String, Object> content = formSubmissionHelper.searchUserFeedbackForms(criteria, formConfig.getFormContextHideCreatorFields());
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, content);
+            response.setResponse(responseMap);
+
+            log.info("searchUserFeedbackForms completed count={}", content.get(COUNT));
+            return response;
+
+        } catch (Exception e) {
+            log.error("searchUserFeedbackForms error: {}", e.getMessage(), e);
+            return buildError(response, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
