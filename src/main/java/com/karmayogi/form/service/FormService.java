@@ -16,4 +16,5 @@ public interface FormService {
         ApiResponse submitForm(FormSubmissionRequest request, String userId, boolean isAnonymousUser);
         ApiResponse getUserSavedForm(String formId, String status, String userId, String contextId);
         ApiResponse getAllApplications(String formId);
+        ApiResponse searchUserFeedbackForms(SearchCriteria criteria);
 }

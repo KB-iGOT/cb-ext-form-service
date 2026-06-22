@@ -50,5 +50,8 @@ public class FormConfig {
     private String searchIndex;
     private List<String> searchSupportedContextTypes;
     private List<String> searchAllowedFilterKeys;
+    private java.util.List<String> submissionAllowedFilterKeys;
+    private java.util.List<String> formContextHideCreatorFields;
+    private int maxAllowedFilterListSize;
 
 }

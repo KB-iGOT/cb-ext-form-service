@@ -185,6 +185,35 @@ public class Constants {
     public static final String API_GET_SAVED_FORM     = "api.getApplicationsById.v3";
     public static final String ERR_CONTEXT_ID_MISSING = "contextId is required";
     public static final String API_GET_ALL_APPLICATIONS     = "api.getAllApplications.v3";
+    public static final String SUBMITTED_BY  = "submittedby";
+    public static final String CONTEXT_ID    = "contextId";
+    public static final String CONTEXT_NAME  = "contextName";
+    public static final String API_SUBMISSION_SEARCH = "api.submission.search.v3";
+
+    // ── Column names (PostgreSQL) ──────────────────────────────────
+    public static final String COL_FORM_ID        = "formid";
+    public static final String COL_SUBMITTED_BY   = "submittedby";
+    public static final String COL_UPDATED_BY     = "updatedby";
+    public static final String COL_CONTEXT_ID     = "contextid";
+    public static final String COL_CONTEXT_TYPE   = "contexttype";
+    public static final String COL_CONTEXT_ORG_ID = "contextorgid";
+    public static final String COL_SUBMITTED_DATE = "submitteddate";
+    public static final String COL_UPDATED_DATE   = "updateddate";
+
+    // ── Entity field names (JPA) ───────────────────────────────────
+    public static final String FIELD_FORM_ID        = "formId";
+    public static final String FIELD_SUBMITTED_BY   = "submittedBy";
+    public static final String FIELD_UPDATED_BY     = "updatedBy";
+    public static final String FIELD_CONTEXT_ID     = "contextId";
+    public static final String FIELD_CONTEXT_TYPE   = "contextType";
+    public static final String FIELD_CONTEXT_ORG_ID = "contextOrgId";
+    public static final String FIELD_SUBMITTED_DATE = "submittedDate";
+    public static final String FIELD_UPDATED_DATE   = "updatedDate";
+
+    public static final String FIELD_SUBMISSION_ID = "submissionId";
+    public static final String FIELD_USER_ID       = "userId";
+    public static final String RESPONSES           = "responses";
+    public static final String SUBMISSION_META     = "submissionMeta";
 
 
     private Constants() {}

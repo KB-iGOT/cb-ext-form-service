@@ -1,12 +1,17 @@
 package com.karmayogi.form.utils;
 
+import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.entity.PublicFormSubmission;
 import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.QuestionResponse;
+import com.karmayogi.form.model.SearchCriteria;
 import com.karmayogi.form.repository.FormSubmissionRepository;
+import com.karmayogi.form.repository.FormSubmissionSpecification;
 import com.karmayogi.form.repository.PublicFormSubmissionRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -14,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.karmayogi.form.utils.Constants.*;
 
@@ -29,6 +35,8 @@ public class FormSubmissionHelper {
     private final FormSubmissionRepository formSubmissionRepository;
     private final PublicFormSubmissionRepository publicFormSubmissionRepository;
     private final UserUtils userUtils;
+    private final EntityManager entityManager;
+    private final FormConfig formConfig;
 
 
     public String validate(FormSubmissionRequest request,
@@ -208,17 +216,17 @@ public class FormSubmissionHelper {
 
         return result.map(submission -> {
             Map<String, Object> data = new LinkedHashMap<>();
-            data.put("submissionId",   submission.getSubmissionId());
-            data.put("formId",         submission.getFormId());
-            data.put("status",         submission.getStatus());
-            data.put("submittedBy",    submission.getSubmittedBy());
-            data.put("submittedDate",  submission.getSubmittedDate());
-            data.put("contextId",      submission.getContextId());
-            data.put("contextName",    submission.getContextName());
-            data.put("contextType",    submission.getContextType());
-            data.put("version",        submission.getVersion());
-            data.put("responses",      submission.getResponses());
-            data.put("submissionMeta", submission.getSubmissionMeta());
+            data.put(FIELD_SUBMISSION_ID,   submission.getSubmissionId());
+            data.put(FORM_ID,         submission.getFormId());
+            data.put(STATUS,         submission.getStatus());
+            data.put(FIELD_SUBMITTED_BY,    submission.getSubmittedBy());
+            data.put(FIELD_SUBMITTED_DATE,  submission.getSubmittedDate());
+            data.put(CONTEXT_ID,      submission.getContextId());
+            data.put(CONTEXT_NAME,    submission.getContextName());
+            data.put(FIELD_CONTEXT_TYPE,    submission.getContextType());
+            data.put(VERSION,        submission.getVersion());
+            data.put(RESPONSES,      submission.getResponses());
+            data.put(SUBMISSION_META, submission.getSubmissionMeta());
             return data;
         }).orElse(null);
     }
@@ -259,6 +267,223 @@ public class FormSubmissionHelper {
                     return data;
                 })
                 .toList();
+    }
+
+    public Map<String, Object> searchUserFeedbackForms(
+            SearchCriteria criteria,
+            List<String> hideCreatorContextTypes) {
+
+        org.springframework.data.domain.Page<FormSubmission> page = fetchSubmissions(criteria);
+        List<Map<String, Object>> records = mapAndHidePII(page.getContent(), hideCreatorContextTypes);
+
+        Map<String, Object> content = new LinkedHashMap<>();
+        content.put(Constants.COUNT,   page.getTotalElements());
+        content.put(Constants.CONTENT, records);
+        if (StringUtils.isNotBlank(criteria.getGroupBy())) {
+            content.put("groupedData",
+                    buildGroupBy(criteria.getGroupBy(), criteria.getFilters()));
+        }
+        return content;
+    }
+
+    private List<Map<String, Object>> buildGroupBy(String groupBy,
+                                                   Map<String, Object> filters) {
+        try {
+            String sql = buildGroupBySql(groupBy, filters);
+            jakarta.persistence.Query query = entityManager.createNativeQuery(sql);
+            applyGroupByParams(query, filters);
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = query.getResultList();
+            return mapGroupByRows(rows, groupBy);
+        } catch (Exception e) {
+            log.error("buildGroupBy error groupBy={}: {}", groupBy, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private void applyGroupByParams(jakarta.persistence.Query query,
+                                    Map<String, Object> filters) {
+        if (MapUtils.isEmpty(filters)) return;
+        filters.entrySet().stream()
+                .filter(e -> !FormSubmissionSpecification.isDateKey(e.getKey()))
+                .filter(e -> !(e.getValue() instanceof List))
+                .forEach(e -> query.setParameter(e.getKey(), e.getValue()));
+    }
+
+    private List<Map<String, Object>> mapGroupByRows(List<Object[]> rows,
+                                                     String groupBy) {
+        return rows.stream()
+                .map(row -> mapGroupByRow(row, groupBy))
+                .toList();
+    }
+
+    private Map<String, Object> mapGroupByRow(Object[] row, String groupBy) {
+        Map<String, Object> bucket = new LinkedHashMap<>();
+        bucket.put(groupBy, row[0]);
+        bucket.put(Constants.COUNT, row[1]);
+        if (Constants.CONTEXT_ID.equalsIgnoreCase(groupBy) && row.length > 2) {
+            bucket.put(Constants.CONTEXT_NAME, row[2]);
+        }
+        return bucket;
+    }
+
+    private String buildGroupBySql(String groupBy, Map<String, Object> filters) {
+        StringBuilder sql = new StringBuilder("SELECT ")
+                .append(toColumnName(groupBy)).append(", COUNT(*) as count ");
+        if (Constants.CONTEXT_ID.equalsIgnoreCase(groupBy)) {
+            sql.append(", contextname ");
+        }
+        sql.append("FROM form_submissions WHERE 1=1 ");
+        if (MapUtils.isNotEmpty(filters)) {
+            filters.keySet().stream()
+                    .filter(k -> !FormSubmissionSpecification.isDateKey(k))
+                    .forEach(k -> sql.append("AND ").append(toColumnName(k))
+                            .append(" = :").append(k).append(" "));
+        }
+        sql.append("GROUP BY ").append(toColumnName(groupBy));
+        if (Constants.CONTEXT_ID.equalsIgnoreCase(groupBy)) {
+            sql.append(", contextname");
+        }
+        return sql.toString();
+    }
+
+    private void hideUserIdentifyingFields(Map<String, Object> userData) {
+        userData.remove(Constants.SUBMITTED_BY);
+        userData.remove(Constants.UPDATED_BY);
+        userData.remove(Constants.CREATED_BY);
+        userData.remove(Constants.FULL_NAME);
+    }
+
+    private String toColumnName(String key) {
+        return switch (key) {
+            case Constants.FIELD_FORM_ID        -> Constants.COL_FORM_ID;
+            case Constants.FIELD_SUBMITTED_BY   -> Constants.COL_SUBMITTED_BY;
+            case Constants.FIELD_UPDATED_BY     -> Constants.COL_UPDATED_BY;
+            case Constants.FIELD_CONTEXT_ID     -> Constants.COL_CONTEXT_ID;
+            case Constants.FIELD_CONTEXT_TYPE   -> Constants.COL_CONTEXT_TYPE;
+            case Constants.FIELD_CONTEXT_ORG_ID -> Constants.COL_CONTEXT_ORG_ID;
+            case Constants.FIELD_SUBMITTED_DATE -> Constants.COL_SUBMITTED_DATE;
+            case Constants.FIELD_UPDATED_DATE   -> Constants.COL_UPDATED_DATE;
+            default                             -> key.toLowerCase();
+        };
+    }
+
+    private String toEntityField(String key) {
+        return switch (key) {
+            case Constants.FIELD_SUBMITTED_BY   -> Constants.FIELD_SUBMITTED_BY;
+            case Constants.FIELD_UPDATED_BY     -> Constants.FIELD_UPDATED_BY;
+            case Constants.FIELD_CONTEXT_ID     -> Constants.FIELD_CONTEXT_ID;
+            case Constants.FIELD_CONTEXT_TYPE   -> Constants.FIELD_CONTEXT_TYPE;
+            case Constants.FIELD_CONTEXT_ORG_ID -> Constants.FIELD_CONTEXT_ORG_ID;
+            case Constants.FIELD_SUBMITTED_DATE -> Constants.FIELD_SUBMITTED_DATE;
+            case Constants.FIELD_UPDATED_DATE   -> Constants.FIELD_UPDATED_DATE;
+            case Constants.FIELD_FORM_ID        -> Constants.FIELD_FORM_ID;
+            default                             -> key;
+        };
+    }
+
+    private Map<String, Object> toMap(FormSubmission s) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put(Constants.FIELD_SUBMISSION_ID,   s.getSubmissionId());
+        data.put(Constants.FIELD_FORM_ID,         s.getFormId());
+        data.put(Constants.FIELD_USER_ID,         s.getUserId());
+        data.put(Constants.STATUS,                s.getStatus());
+        data.put(Constants.FULL_NAME,             s.getFullName());
+        data.put(Constants.FIELD_SUBMITTED_BY,    s.getSubmittedBy());
+        data.put(Constants.FIELD_SUBMITTED_DATE,  s.getSubmittedDate());
+        data.put(Constants.FIELD_CONTEXT_ID,      s.getContextId());
+        data.put(Constants.CONTEXT_NAME,          s.getContextName());
+        data.put(Constants.FIELD_CONTEXT_TYPE,    s.getContextType());
+        data.put(Constants.VERSION,               s.getVersion());
+        data.put(Constants.RESPONSES,             s.getResponses());
+        data.put(Constants.SUBMISSION_META,       s.getSubmissionMeta());
+        return data;
+    }
+
+    public String validateSubmissionSearch(SearchCriteria criteria) {
+        String filterError = validateFilters(criteria.getFilters());
+        if (filterError != null) return filterError;
+        return validatePagination(criteria);
+    }
+
+    private String validateFilters(Map<String, Object> filters) {
+        if (MapUtils.isEmpty(filters)) return null;
+
+        String invalidKeys = filters.keySet().stream()
+                .filter(k -> !formConfig.getSubmissionAllowedFilterKeys().contains(k))
+                .collect(Collectors.joining(", "));
+        if (!invalidKeys.isEmpty())
+            return "Unsupported filter fields: " + invalidKeys;
+
+        return filters.entrySet().stream()
+                .filter(e -> e.getValue() instanceof List<?>)
+                .map(e -> validateListFilter(e.getKey(), (List<?>) e.getValue()))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String validateListFilter(String key, List<?> list) {
+        if (list.isEmpty())
+            return "Filter '" + key + "' contains empty list";
+        if (list.size() > formConfig.getMaxAllowedFilterListSize())
+            return "Too many values for filter '" + key
+                    + "' (max=" + formConfig.getMaxAllowedFilterListSize() + ")";
+        return null;
+    }
+
+    private String validatePagination(SearchCriteria criteria) {
+        int page = criteria.getPage() != null && criteria.getPage() >= 0 ? criteria.getPage() : 0;
+        if (page > formConfig.getSearchMaxPage())
+            return "Maximum page number exceeded (max=" + formConfig.getSearchMaxPage() + ")";
+        int size = criteria.getSize() != null && criteria.getSize() >= 0 ? criteria.getSize() : 20;
+        if (size > formConfig.getSearchMaxPageSize())
+            return "Maximum page size exceeded (max=" + formConfig.getSearchMaxPageSize() + ")";
+
+        return null;
+    }
+
+    private org.springframework.data.domain.Page<FormSubmission> fetchSubmissions(
+            SearchCriteria criteria) {
+        org.springframework.data.jpa.domain.Specification<FormSubmission> spec =
+                FormSubmissionSpecification.fromFilters(criteria.getFilters());
+        String sortField = StringUtils.isNotBlank(criteria.getSortBy())
+                ? toEntityField(criteria.getSortBy()) : "submittedDate";
+        org.springframework.data.domain.Sort sort =
+                Constants.DESC.equalsIgnoreCase(criteria.getSortOrder())
+                        ? org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, sortField)
+                        : org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.ASC, sortField);
+        int page = criteria.getPage() != null && criteria.getPage() >= 0
+                ? criteria.getPage() : 0;
+        int size = criteria.getSize() != null && criteria.getSize() > 0
+                ? criteria.getSize() : 20;
+        return formSubmissionRepository.findAll(spec,
+                org.springframework.data.domain.PageRequest.of(page, size, sort));
+    }
+
+    private List<Map<String, Object>> mapAndHidePII(List<FormSubmission> submissions, List<String> hideCreatorContextTypes) {
+        Map<String, String> formIdContextMap = new HashMap<>();
+        List<Map<String, Object>> records = submissions.stream()
+                .map(s -> {
+                    Map<String, Object> submission = toMap(s);
+                    if (s.getFormId() != null && s.getContextType() != null) {
+                        formIdContextMap.put(s.getFormId(), s.getContextType());
+                    }
+                    return submission;
+                })
+                .toList();
+
+        if (CollectionUtils.isNotEmpty(hideCreatorContextTypes)) {
+            records.forEach(submission -> {
+                String contextType = formIdContextMap.get(String.valueOf(submission.get(Constants.FORM_ID)));
+                if (contextType != null && hideCreatorContextTypes.contains(contextType)) {
+                    hideUserIdentifyingFields(submission);
+                }
+            });
+        }
+        return records;
     }
 
 }

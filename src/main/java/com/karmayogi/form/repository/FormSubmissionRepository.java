@@ -2,6 +2,7 @@ package com.karmayogi.form.repository;
 
 import com.karmayogi.form.entity.FormSubmission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import java.util.Set;
  * @author anil
  */
 @Repository
-public interface FormSubmissionRepository extends JpaRepository<FormSubmission, String> {
+public interface FormSubmissionRepository extends JpaRepository<FormSubmission, String>, JpaSpecificationExecutor<FormSubmission> {
 
     @Query(value = """
             SELECT formid, COUNT(*) as count
