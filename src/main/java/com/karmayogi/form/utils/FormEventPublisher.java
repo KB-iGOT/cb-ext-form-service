@@ -46,7 +46,12 @@ public class FormEventPublisher {
                 com.fasterxml.jackson.databind.node.ArrayNode fieldDocs =
                         objectMapper.createArrayNode();
                 for (FieldMeta field : fields) {
-                    fieldDocs.add(buildFieldDoc(form.getFormId(), field));
+                    ObjectNode wrapper = objectMapper.createObjectNode();
+                    if (field.getId() != null) {
+                        wrapper.put("fieldId", field.getId());
+                    }
+                    wrapper.set("doc", buildFieldDoc(form.getFormId(), field));
+                    fieldDocs.add(wrapper);
                 }
                 envelope.set("fieldDocs", fieldDocs);
             }
@@ -142,6 +147,48 @@ public class FormEventPublisher {
         return NON_QUESTION_FIELD_TYPES.contains(fieldType.toLowerCase())
                 ? fieldType.toLowerCase()
                 : "question";
+    }
+
+    public void publishFormUpdated(Forms form, List<FieldMeta> fields,
+                                   java.util.Set<String> staleFieldIds) {
+        try {
+            ObjectNode envelope = objectMapper.createObjectNode();
+            envelope.put("eventType", "UPDATE");
+            envelope.set("formDoc", buildFormDoc(form));
+
+
+            if (CollectionUtils.isNotEmpty(fields)) {
+                com.fasterxml.jackson.databind.node.ArrayNode fieldDocs =
+                        objectMapper.createArrayNode();
+                for (FieldMeta field : fields) {
+                    ObjectNode wrapper = objectMapper.createObjectNode();
+                    if (field.getId() != null) {
+                        wrapper.put("fieldId", field.getId());
+                    }
+                    wrapper.set("doc", buildFieldDoc(form.getFormId(), field));
+                    fieldDocs.add(wrapper);
+                }
+                envelope.set("fieldDocs", fieldDocs);
+            }
+
+            if (staleFieldIds != null && !staleFieldIds.isEmpty()) {
+                com.fasterxml.jackson.databind.node.ArrayNode staleIds =
+                        objectMapper.createArrayNode();
+                staleFieldIds.forEach(staleIds::add);
+                envelope.set("staleFieldIds", staleIds);
+            }
+
+            String json = objectMapper.writeValueAsString(envelope);
+            formKafkaTemplate.send(formEventsTopic, form.getFormId(), json);
+            log.info("FormEventPublisher published UPDATE formId={} fields={} stale={} topic={}",
+                    form.getFormId(),
+                    CollectionUtils.isEmpty(fields) ? 0 : fields.size(),
+                    staleFieldIds == null ? 0 : staleFieldIds.size(),
+                    formEventsTopic);
+        } catch (Exception e) {
+            log.error("FormEventPublisher publishFormUpdated failed formId={}: {}",
+                    form.getFormId(), e.getMessage(), e);
+        }
     }
 
 }

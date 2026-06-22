@@ -3,8 +3,10 @@ package com.karmayogi.form.consumer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import com.karmayogi.form.utils.Constants;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.apache.commons.collections4.CollectionUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,7 +66,7 @@ public class FormEsIndexer {
 
             if (fieldDocs != null && fieldDocs.isArray() && fieldDocs.size() > 0) {
                 List<String> indexedFieldIds = bulkWriteToEs(formId, fieldDocs);
-                if (indexedFieldIds == null) {
+                if (CollectionUtils.isEmpty(indexedFieldIds)) {
                     log.error("FormEsIndexer bulk failed formId={} — rolling back", formId);
                     rollback(formId, new ArrayList<>());
                     meterRegistry.counter("form.es.bulk.failure").increment();
@@ -109,21 +112,26 @@ public class FormEsIndexer {
             BulkRequest bulkRequest = new BulkRequest();
             List<String> ids = new ArrayList<>();
 
-            for (JsonNode fieldDoc : fieldDocs) {
-                String fieldId = UUID.randomUUID().toString();
+            for (JsonNode wrapper : fieldDocs) {
+                String fieldId = wrapper.has(Constants.FIELD_ID) && !wrapper.get(Constants.FIELD_ID).isNull()
+                        ? wrapper.get(Constants.FIELD_ID).asText()
+                        : UUID.randomUUID().toString();
                 ids.add(fieldId);
+
+                JsonNode doc = wrapper.has("doc") ? wrapper.get("doc") : wrapper;
+
                 IndexRequest indexRequest = new IndexRequest()
                         .index(index)
                         .id(fieldId)
-                        .source(objectMapper.writeValueAsString(fieldDoc), XContentType.JSON)
+                        .source(objectMapper.writeValueAsString(doc), XContentType.JSON)
                         .type(DOC_TYPE);
                 bulkRequest.add(indexRequest);
             }
 
             BulkResponse bulkResponse = client.bulk(bulkRequest, RequestOptions.DEFAULT);
             if (bulkResponse.hasFailures()) {
-                log.error("FormEsIndexer bulk failures formId={}: {}",
-                        formId, bulkResponse.buildFailureMessage());
+                log.error("FormEsIndexer bulk failures formId={}",
+                        formId);
                 List<String> successIds = new ArrayList<>();
                 int i = 0;
                 for (BulkItemResponse item : bulkResponse.getItems()) {
@@ -131,14 +139,102 @@ public class FormEsIndexer {
                     i++;
                 }
                 rollback(formId, successIds);
-                return null;
+                return Collections.emptyList();
             }
 
             return ids;
         } catch (Exception e) {
             log.error("FormEsIndexer bulkWriteToEs failed formId={}: {}", formId, e.getMessage(), e);
-            return null;
+            return Collections.emptyList();
         }
+    }
+
+    public void update(String formId, String envelope) throws IOException {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            JsonNode root = objectMapper.readTree(envelope);
+            JsonNode formDoc   = root.get("formDoc");
+            JsonNode fieldDocs = root.get("fieldDocs");
+            JsonNode staleIds  = root.get("staleFieldIds");
+
+            updateFormDoc(formId, formDoc);
+
+            if ((fieldDocs != null && fieldDocs.size() > 0)
+                    || (staleIds != null && staleIds.size() > 0)) {
+                bulkUpdateFieldDocs(formId, fieldDocs, staleIds);
+            }
+
+            meterRegistry.counter("form.es.update.success").increment();
+            log.info("FormEsIndexer update completed formId={}", formId);
+
+        } catch (IOException e) {
+            meterRegistry.counter("form.es.update.failure").increment();
+            throw e;
+        } finally {
+            sample.stop(meterRegistry.timer("form.es.update.duration", "index", index));
+        }
+    }
+
+    private void updateFormDoc(String formId, JsonNode formDoc) throws IOException {
+        String json = objectMapper.writeValueAsString(formDoc);
+        org.elasticsearch.action.update.UpdateRequest updateRequest =
+                new org.elasticsearch.action.update.UpdateRequest()
+                        .index(index)
+                        .type(DOC_TYPE)
+                        .id(formId)
+                        .doc(json, XContentType.JSON)
+                        .docAsUpsert(false);
+        client.update(updateRequest, RequestOptions.DEFAULT);
+        log.info("FormEsIndexer form header updated formId={}", formId);
+    }
+
+    private void bulkUpdateFieldDocs(String formId,
+                                     JsonNode fieldDocs,
+                                     JsonNode staleIds) throws IOException {
+        BulkRequest bulkRequest = new BulkRequest();
+
+        if (fieldDocs != null) {
+            for (JsonNode wrapper : fieldDocs) {
+                boolean isExisting = wrapper.has("fieldId")
+                        && !wrapper.get("fieldId").isNull();
+                String fieldId = isExisting
+                        ? wrapper.get("fieldId").asText()
+                        : UUID.randomUUID().toString();
+
+                JsonNode doc = wrapper.has("doc") ? wrapper.get("doc") : wrapper;
+                String json = objectMapper.writeValueAsString(doc);
+
+                if (isExisting) {
+                    bulkRequest.add(new org.elasticsearch.action.update.UpdateRequest()
+                            .index(index).type(DOC_TYPE).id(fieldId)
+                            .doc(json, XContentType.JSON)
+                            .docAsUpsert(true));
+                } else {
+                    bulkRequest.add(new IndexRequest()
+                            .index(index).type(DOC_TYPE).id(fieldId)
+                            .source(json, XContentType.JSON));
+                }
+            }
+        }
+
+        if (staleIds != null) {
+            for (JsonNode staleId : staleIds) {
+                bulkRequest.add(new org.elasticsearch.action.delete.DeleteRequest()
+                        .index(index).type(DOC_TYPE).id(staleId.asText()));
+            }
+        }
+
+        if (bulkRequest.numberOfActions() == 0) return;
+
+        BulkResponse bulkResponse = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+        if (bulkResponse.hasFailures()) {
+            log.error("FormEsIndexer bulk update failures formId={}",
+                    formId);
+            throw new IOException("Bulk update failed formId=" + formId
+                    + ": " + bulkResponse.buildFailureMessage());
+        }
+        log.info("FormEsIndexer bulk update completed formId={} actions={}",
+                formId, bulkRequest.numberOfActions());
     }
 
     public void delete(String id) {

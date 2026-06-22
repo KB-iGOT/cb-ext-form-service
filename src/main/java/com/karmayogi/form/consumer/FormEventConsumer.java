@@ -3,6 +3,7 @@ package com.karmayogi.form.consumer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  * @author anil
  */
 @Component
+@RequiredArgsConstructor
 public class FormEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(FormEventConsumer.class);
@@ -22,14 +24,6 @@ public class FormEventConsumer {
     private final FormEsIndexer esIndexer;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
-
-    public FormEventConsumer(FormEsIndexer esIndexer,
-                             ObjectMapper objectMapper,
-                             MeterRegistry meterRegistry) {
-        this.esIndexer = esIndexer;
-        this.objectMapper = objectMapper;
-        this.meterRegistry = meterRegistry;
-    }
 
     @KafkaListener(
             topics = "${form.kafka.topic.form-events}",
@@ -63,7 +57,16 @@ public class FormEventConsumer {
             log.info("FormEventConsumer received formId={} partition={} offset={}",
                     formId, record.partition(), record.offset());
 
-            esIndexer.index(formId, json);
+            com.fasterxml.jackson.databind.JsonNode root =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+            String eventType = root.has("eventType")
+                    ? root.get("eventType").asText() : "CREATE";
+
+            if ("UPDATE".equals(eventType)) {
+                esIndexer.update(formId, json);
+            } else {
+                esIndexer.index(formId, json);
+            }
 
             ack.acknowledge();
             meterRegistry.counter("form.kafka.consumer.ack").increment();
