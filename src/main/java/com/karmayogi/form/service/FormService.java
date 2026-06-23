@@ -20,4 +20,5 @@ public interface FormService {
         ApiResponse searchUserFeedbackForms(SearchCriteria criteria);
         ApiResponse saveFeedback(FeedbackRequest request, String userId);
         ApiResponse processAssignmentAnswer(FormSubmissionRequest request, String userId, boolean isDraft);
+        ApiResponse getUserSavedFormsBulk(Map<String, Object> requestBody);
 }

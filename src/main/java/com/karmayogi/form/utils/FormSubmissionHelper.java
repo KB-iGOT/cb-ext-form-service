@@ -38,6 +38,7 @@ public class FormSubmissionHelper {
     private final UserUtils userUtils;
     private final EntityManager entityManager;
     private final FormConfig formConfig;
+    private final FormCacheService formCacheService;
 
 
     public String validate(FormSubmissionRequest request,
@@ -184,6 +185,9 @@ public class FormSubmissionHelper {
         submission.setAttachments(request.getAttachments());
 
         formSubmissionRepository.save(submission);
+        if (StringUtils.isNotBlank(request.getContextId())) {
+            formCacheService.invalidateBulkStatus(userId, request.getFormId(), request.getContextId());
+        }
         return submission.getSubmissionId();
     }
 
@@ -647,6 +651,60 @@ public class FormSubmissionHelper {
         if (StringUtils.isBlank(request.getSubmitUrl()))
             return Constants.ERR_SUBMIT_URL_MISSING;
         return null;
+    }
+
+    public List<Map<String, Object>> getUserSavedFormsBulk(String userId, List<Map<String, String>> formContextList, com.karmayogi.form.utils.FormCacheService formCacheService) {
+
+        List<Map<String, String>> cacheMisses = new ArrayList<>();
+        Map<String, Boolean> cacheResults = new HashMap<>();
+
+        for (Map<String, String> item : formContextList) {
+            String formId    = item.get(Constants.FORM_ID);
+            String contextId = item.get(Constants.CONTEXT_ID);
+            if (StringUtils.isBlank(formId) || StringUtils.isBlank(contextId)) continue;
+
+            Optional<Boolean> cached = formCacheService.getSubmissionStatus(userId, formId, contextId);
+            if (cached.isPresent()) {
+                cacheResults.put(formId + "_" + contextId, cached.get());
+            } else {
+                cacheMisses.add(item);
+            }
+        }
+
+        if (!cacheMisses.isEmpty()) {
+            List<String> formIds = cacheMisses.stream()
+                    .map(i -> i.get(Constants.FORM_ID))
+                    .filter(StringUtils::isNotBlank)
+                    .distinct()
+                    .toList();
+
+            Set<String> submittedKeys = new HashSet<>();
+            formSubmissionRepository.findSubmittedByUserAndFormIds(userId, formIds).forEach(row -> submittedKeys.add(row[0] + "_" + row[1]));
+
+
+            for (Map<String, String> item : cacheMisses) {
+                String formId    = item.get(Constants.FORM_ID);
+                String contextId = item.get(Constants.CONTEXT_ID);
+                if (StringUtils.isBlank(formId) || StringUtils.isBlank(contextId)) continue;
+                boolean submitted = submittedKeys.contains(formId + "_" + contextId);
+                cacheResults.put(formId + "_" + contextId, submitted);
+                formCacheService.putSubmissionStatus(userId, formId, contextId, submitted);
+            }
+        }
+
+        return formContextList.stream()
+                .map(item -> {
+                    String formId    = item.get(Constants.FORM_ID);
+                    String contextId = item.get(Constants.CONTEXT_ID);
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put(Constants.FORM_ID,    formId);
+                    entry.put(Constants.CONTEXT_ID, contextId);
+                    entry.put(Constants.SUBMITTED,
+                            cacheResults.getOrDefault(
+                                    formId + "_" + contextId, false));
+                    return entry;
+                })
+                .toList();
     }
 
 }

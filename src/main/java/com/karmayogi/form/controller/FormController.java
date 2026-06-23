@@ -12,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 import static com.karmayogi.form.utils.Constants.X_AUTHENTICATED_USER_ID;
 
 /**
@@ -87,5 +89,10 @@ public class FormController {
     @PostMapping("/submit")
     public ResponseEntity<ApiResponse> submitAnswer(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FormSubmissionRequest request) {
         return ResponseEntity.ok(formService.processAssignmentAnswer(request, userId, false));
+    }
+
+    @PostMapping("/bulkGetApplicationsById")
+    public ResponseEntity<ApiResponse> getUserApplicationsBulk(@RequestBody Map<String, Object> requestBody) {
+        return ResponseEntity.ok(formService.getUserSavedFormsBulk(requestBody));
     }
 }
