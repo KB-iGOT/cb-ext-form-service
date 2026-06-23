@@ -47,7 +47,7 @@ public class FormController {
         return ResponseEntity.ok(formService.searchForms(criteria));
     }
 
-    @PostMapping("/submit")
+    @PostMapping("/saveFormSubmit")
     public ResponseEntity<ApiResponse> submitForm(
             @RequestBody FormSubmissionRequest request,
             @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId) {
@@ -77,5 +77,15 @@ public class FormController {
     @PostMapping("/feedback")
     public ResponseEntity<ApiResponse> saveFeedback(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FeedbackRequest request) {
         return ResponseEntity.ok(formService.saveFeedback(request, userId));
+    }
+
+    @PutMapping("/submitDraft")
+    public ResponseEntity<ApiResponse> saveOrUpdateAnswer(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FormSubmissionRequest request) {
+        return ResponseEntity.ok(formService.processAssignmentAnswer(request, userId, true));
+    }
+
+    @PostMapping("/submit")
+    public ResponseEntity<ApiResponse> submitAnswer(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FormSubmissionRequest request) {
+        return ResponseEntity.ok(formService.processAssignmentAnswer(request, userId, false));
     }
 }

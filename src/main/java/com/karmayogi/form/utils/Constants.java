@@ -223,6 +223,8 @@ public class Constants {
     public static final String INSTRUCTOR_FEEDBACK   = "instructorFeedback";
     public static final String INSTRUCTOR_ID         = "instructorId";
 
+    public static final String ERR_SUBMIT_URL_MISSING       = "submitUrl is required";
+    public static final String API_PROCESS_ASSIGNMENT        = "api.processAssignmentAnswer.v3";
 
     private Constants() {}
 }
