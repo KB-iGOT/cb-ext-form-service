@@ -53,5 +53,7 @@ public class FormConfig {
     private java.util.List<String> submissionAllowedFilterKeys;
     private java.util.List<String> formContextHideCreatorFields;
     private int maxAllowedFilterListSize;
+    private List<String> validationUrlAllowedKeys;
+    private List<String> validationUrlAllowedDomains;
 
 }

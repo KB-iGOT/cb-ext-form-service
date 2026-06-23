@@ -1,5 +1,6 @@
 package com.karmayogi.form.controller;
 
+import com.karmayogi.form.model.FeedbackRequest;
 import com.karmayogi.form.model.FormRequest;
 import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.SearchCriteria;
@@ -71,5 +72,10 @@ public class FormController {
     @PostMapping("/submission/search")
     public ResponseEntity<ApiResponse> searchUserFeedbackForms(@RequestBody SearchCriteria criteria) {
         return ResponseEntity.ok(formService.searchUserFeedbackForms(criteria));
+    }
+
+    @PostMapping("/feedback")
+    public ResponseEntity<ApiResponse> saveFeedback(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FeedbackRequest request) {
+        return ResponseEntity.ok(formService.saveFeedback(request, userId));
     }
 }

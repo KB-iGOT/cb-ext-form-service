@@ -19,13 +19,10 @@ import java.util.Set;
 @Component
 public class AssignmentValidator extends BaseFormValidator {
 
-    private final FormConfig formConfig;
-
     public AssignmentValidator(InputValidator inputValidator,
                                UserUtils utilityService,
-                               FormConfig formConfig, FormConfig formConfig1) {
+                               FormConfig formConfig) {
         super(inputValidator, utilityService, formConfig);
-        this.formConfig = formConfig1;
     }
 
 
@@ -37,10 +34,6 @@ public class AssignmentValidator extends BaseFormValidator {
 
     @Override
     protected String validateContextSpecific(FormRequest request, String userId) {
-
-        if (request.getFields().size() > formConfig.getMaxFields()) {
-            return "Maximum allowed fields size is " + formConfig.getMaxFields();
-        }
 
         Map<String, Object> props = request.getAdditionalProperties();
         if (MapUtils.isEmpty(props)) {

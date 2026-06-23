@@ -215,6 +215,14 @@ public class Constants {
     public static final String RESPONSES           = "responses";
     public static final String SUBMISSION_META     = "submissionMeta";
 
+    // ── Feedback ───────────────────────────────────────────────────
+    public static final String API_FEEDBACK          = "api.feedback.v3";
+    public static final String EVALUATED             = "EVALUATED";
+    public static final String TOTAL_MARKS_GIVEN     = "totalMarksGiven";
+    public static final String MAXIMUM_MARKS         = "maximumMarks";
+    public static final String INSTRUCTOR_FEEDBACK   = "instructorFeedback";
+    public static final String INSTRUCTOR_ID         = "instructorId";
+
 
     private Constants() {}
 }

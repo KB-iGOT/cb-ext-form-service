@@ -1,5 +1,6 @@
 package com.karmayogi.form.validator;
 
+import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.utils.Constants;
 import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.StringUtils;
@@ -34,6 +35,11 @@ public class InputValidator {
     private Pattern urlPattern;
     private Pattern htmlPattern;
     private Pattern scriptPattern;
+    private final FormConfig formConfig;
+
+    public InputValidator(FormConfig formConfig) {
+        this.formConfig = formConfig;
+    }
 
     @PostConstruct
     public void init() {
@@ -112,12 +118,17 @@ public class InputValidator {
         }
         return null;
     }
-   
+
     public String validateMapValues(Map<String, Object> map) {
         if (map == null || map.isEmpty()) {
             return null;
         }
         for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (formConfig.getValidationUrlAllowedKeys().contains(entry.getKey())) {
+                if (entry.getValue() instanceof String url && !isAllowedDomain(url))
+                    return entry.getKey() + " must be a URL from an allowed domain";
+                continue;
+            }
             String error = validateValueRecursive(entry.getKey(), entry.getValue());
             if (error != null) {
                 return error;
@@ -177,7 +188,12 @@ public class InputValidator {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
 
                 String key = String.valueOf(entry.getKey());
-
+                if (formConfig.getValidationUrlAllowedKeys() != null
+                        && formConfig.getValidationUrlAllowedKeys().contains(key)) {
+                    if (entry.getValue() instanceof String url && !isAllowedDomain(url))
+                        return fieldLabel + "." + key + " must be a URL from an allowed domain";
+                    continue;
+                }
                 String error =
                         validateObject(entry.getValue(), fieldLabel + "." + key);
 
@@ -209,6 +225,17 @@ public class InputValidator {
         }
 
         return null;
+    }
+
+    private boolean isAllowedDomain(String url) {
+        try {
+            String host = new java.net.URL(url).getHost();
+            return formConfig.getValidationUrlAllowedDomains().stream()
+                    .anyMatch(domain -> host.equals(domain)
+                            || host.endsWith("." + domain));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }

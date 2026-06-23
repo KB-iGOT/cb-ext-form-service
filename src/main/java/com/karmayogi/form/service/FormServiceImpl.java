@@ -2,6 +2,7 @@ package com.karmayogi.form.service;
 
 import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormQuestions;
+import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.model.*;
 import com.karmayogi.form.repository.FormQuestionsRepository;
@@ -432,6 +433,49 @@ public class FormServiceImpl implements FormService{
         } catch (Exception e) {
             log.error("searchUserFeedbackForms error: {}", e.getMessage(), e);
             return buildError(response, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ApiResponse saveFeedback(FeedbackRequest request, String userId) {
+        ApiResponse response = new ApiResponse(API_FEEDBACK);
+        try {
+            log.info("saveFeedback started formId={} userId={}", request.getFormId(), userId);
+
+            String error = formSubmissionHelper.validateFeedback(request, userId);
+            if (error != null) {
+                log.warn("saveFeedback validation failed: {}", error);
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+            }
+
+            FormSubmission submission = formSubmissionHelper.saveFeedbackToSubmission(request, userId);
+
+            if (submission == null) {
+                return buildError(response,
+                        "No submission found for formId=" + request.getFormId(),
+                        HttpStatus.NOT_FOUND);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, submission.getSubmissionId());
+            data.put(FORM_ID,     request.getFormId());
+            data.put(SAVED_STATUS, submission.getStatus());
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+
+            log.info("saveFeedback success formId={} submissionId={}",
+                    request.getFormId(), submission.getSubmissionId());
+            return response;
+
+        } catch (IllegalStateException e) {
+            log.warn("saveFeedback invalid state formId={}: {}", request.getFormId(), e.getMessage());
+            return buildError(response, e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            log.error("saveFeedback error formId={}: {}", request.getFormId(), e.getMessage(), e);
+            return buildError(response,
+                    "Error while submitting feedback: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
