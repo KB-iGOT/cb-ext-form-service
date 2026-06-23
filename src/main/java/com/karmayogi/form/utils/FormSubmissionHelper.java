@@ -3,6 +3,7 @@ package com.karmayogi.form.utils;
 import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.entity.PublicFormSubmission;
+import com.karmayogi.form.model.FeedbackRequest;
 import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.QuestionResponse;
 import com.karmayogi.form.model.SearchCriteria;
@@ -74,6 +75,9 @@ public class FormSubmissionHelper {
             return Constants.ERR_INVALID_STATUS;
 
         if (request.getResponses() == null || request.getResponses().isEmpty()) {
+            if (Constants.ASSIGNMENT.equalsIgnoreCase(request.getContextType())) {
+                return null;
+            }
             return Constants.DRAFT.equals(status) ? null : Constants.ERR_RESPONSES_MISSING;
         }
 
@@ -484,6 +488,64 @@ public class FormSubmissionHelper {
             });
         }
         return records;
+    }
+
+    public FormSubmission saveFeedbackToSubmission(FeedbackRequest request, String userId) {
+        Optional<FormSubmission> existing =
+                formSubmissionRepository.findLatestByFormIdAndUserIdAndContextId(
+                        request.getFormId(),
+                        request.getSubmittedBy(),
+                        StringUtils.defaultString(request.getContextId()));
+
+        if (existing.isEmpty()) return null;
+
+        FormSubmission submission = existing.get();
+
+        // only SUBMITTED status allowed for feedback
+        if (!Constants.SUBMITTED_CAPS.equalsIgnoreCase(submission.getStatus())) {
+            throw new IllegalStateException(
+                    "Invalid status. Only SUBMITTED assignment allowed for feedback. formId="
+                            + request.getFormId());
+        }
+
+        // determine new status
+        String status = StringUtils.isNotBlank(request.getStatus())
+                && "Evaluated".equalsIgnoreCase(request.getStatus())
+                ? request.getStatus().toUpperCase()
+                : Constants.EVALUATED;
+
+        // build submissionMeta
+        Map<String, Object> submissionMeta = new LinkedHashMap<>();
+        submissionMeta.put(Constants.TOTAL_MARKS_GIVEN,      request.getMarksGiven());
+        submissionMeta.put(Constants.MAXIMUM_MARKS,          request.getMaximumMarks());
+        submissionMeta.put(Constants.INSTRUCTOR_FEEDBACK,    request.getInstructorFeedback());
+        submissionMeta.put(Constants.INSTRUCTOR_ID,          userId);
+
+        submission.setStatus(status);
+        submission.setUpdatedBy(userId);
+        submission.setUpdatedDate(System.currentTimeMillis());
+        submission.setSubmissionMeta(submissionMeta);
+
+        formSubmissionRepository.save(submission);
+        log.info("saveFeedbackToSubmission saved submissionId={} status={}",
+                submission.getSubmissionId(), status);
+        return submission;
+    }
+
+    public String validateFeedback(FeedbackRequest request, String userId) {
+        try {
+            Map<String, Object> userData = userUtils.getUsersReadData(userId);
+            if (MapUtils.isEmpty(userData))
+                return Constants.ERR_INVALID_USER_ID;
+        } catch (Exception e) {
+            log.error("validateFeedback user lookup failed userId={}: {}", userId, e.getMessage());
+            return Constants.ERR_INVALID_USER_ID;
+        }
+        if (StringUtils.isBlank(request.getFormId()))
+            return Constants.ERR_FORM_ID_MISSING;
+        if (StringUtils.isBlank(request.getContextId()))
+            return Constants.ERR_CONTEXT_ID_MISSING;
+        return null;
     }
 
 }

@@ -1,5 +1,6 @@
 package com.karmayogi.form.service;
 
+import com.karmayogi.form.model.FeedbackRequest;
 import com.karmayogi.form.model.FormRequest;
 import com.karmayogi.form.model.FormSubmissionRequest;
 import com.karmayogi.form.model.SearchCriteria;
@@ -17,4 +18,5 @@ public interface FormService {
         ApiResponse getUserSavedForm(String formId, String status, String userId, String contextId);
         ApiResponse getAllApplications(String formId);
         ApiResponse searchUserFeedbackForms(SearchCriteria criteria);
+        ApiResponse saveFeedback(FeedbackRequest request, String userId);
 }
