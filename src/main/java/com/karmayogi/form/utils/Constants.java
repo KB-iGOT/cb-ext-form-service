@@ -226,5 +226,9 @@ public class Constants {
     public static final String ERR_SUBMIT_URL_MISSING       = "submitUrl is required";
     public static final String API_PROCESS_ASSIGNMENT        = "api.processAssignmentAnswer.v3";
 
+    public static final String API_BULK_GET_APPLICATIONS     = "api.bulkGetApplicationsById.v3";
+    public static final String FORM_CONTEXT_LIST             = "formContextList";
+    public static final String USER_ID_KEY                   = "userId";
+
     private Constants() {}
 }

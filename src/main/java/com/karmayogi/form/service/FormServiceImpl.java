@@ -537,4 +537,38 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse getUserSavedFormsBulk(Map<String, Object> requestBody) {
+        ApiResponse response = new ApiResponse(API_BULK_GET_APPLICATIONS);
+        try {
+            String userId = (String) requestBody.get(USER_ID_KEY);
+            List<Map<String, String>> formContextList = (List<Map<String, String>>) requestBody.get(FORM_CONTEXT_LIST);
+
+            log.info("getUserSavedFormsBulk userId={} count={}", userId, formContextList != null ? formContextList.size() : 0);
+
+            if (StringUtils.isBlank(userId))
+                return buildError(response, ERR_INVALID_USER_ID, HttpStatus.BAD_REQUEST);
+            if (CollectionUtils.isEmpty(formContextList))
+                return buildError(response, "Form context list cannot be empty", HttpStatus.BAD_REQUEST);
+
+            List<Map<String, Object>> result = formSubmissionHelper.getUserSavedFormsBulk(userId, formContextList, formCacheService);
+
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, result);
+            response.setResponse(responseMap);
+
+            log.info("getUserSavedFormsBulk completed userId={} total={} found={}",
+                    userId, formContextList.size(),
+                    result.stream().filter(r -> Boolean.TRUE.equals(r.get(SUBMITTED))).count());
+            return response;
+
+        } catch (Exception e) {
+            log.error("getUserSavedFormsBulk error: {}", e.getMessage(), e);
+            return buildError(response,
+                    ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
