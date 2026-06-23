@@ -19,4 +19,5 @@ public interface FormService {
         ApiResponse getAllApplications(String formId);
         ApiResponse searchUserFeedbackForms(SearchCriteria criteria);
         ApiResponse saveFeedback(FeedbackRequest request, String userId);
+        ApiResponse processAssignmentAnswer(FormSubmissionRequest request, String userId, boolean isDraft);
 }

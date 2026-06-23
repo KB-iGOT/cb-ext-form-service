@@ -548,4 +548,105 @@ public class FormSubmissionHelper {
         return null;
     }
 
+    public String handleFinalSubmission(FormSubmissionRequest request,
+                                        String userId,
+                                        String courseId) {
+        long now = System.currentTimeMillis();
+        Optional<FormSubmission> existing =
+                formSubmissionRepository.findLatestByFormIdAndUserIdAndContextId(
+                        request.getFormId(), userId,
+                        StringUtils.defaultString(courseId));
+
+        if (existing.isPresent()) {
+            FormSubmission submission = existing.get();
+            if (Constants.SUBMITTED_CAPS.equalsIgnoreCase(submission.getStatus())) {
+                return "ALREADY_SUBMITTED";
+            }
+            submission.setStatus(Constants.SUBMITTED_CAPS);
+            submission.setSubmitUrl(request.getSubmitUrl());
+            submission.setSubmissionMeta(request.getSubmissionMeta());
+            submission.setUpdatedBy(userId);
+            submission.setUpdatedDate(now);
+            formSubmissionRepository.save(submission);
+            log.info("handleFinalSubmission upgraded DRAFT→SUBMITTED submissionId={}",
+                    submission.getSubmissionId());
+            return submission.getSubmissionId();
+        }
+
+        FormSubmission submission = new FormSubmission();
+        submission.setSubmissionId(UUID.randomUUID().toString());
+        submission.setFormId(request.getFormId());
+        submission.setUserId(userId);
+        submission.setSubmittedBy(userId);
+        submission.setContextId(courseId);
+        submission.setContextType(Constants.ASSIGNMENT);
+        submission.setStatus(Constants.SUBMITTED_CAPS);
+        submission.setSubmitUrl(request.getSubmitUrl());
+        submission.setSubmissionMeta(request.getSubmissionMeta());
+        submission.setSubmittedDate(now);
+        formSubmissionRepository.save(submission);
+        log.info("handleFinalSubmission created new SUBMITTED submissionId={}",
+                submission.getSubmissionId());
+        return submission.getSubmissionId();
+    }
+
+    public String handlePreviewSubmission(FormSubmissionRequest request,
+                                          String userId,
+                                          String courseId) {
+        long now = System.currentTimeMillis();
+        Optional<FormSubmission> existing =
+                formSubmissionRepository.findLatestByFormIdAndUserIdAndContextId(
+                        request.getFormId(), userId,
+                        StringUtils.defaultString(courseId));
+
+        if (existing.isPresent()) {
+            FormSubmission submission = existing.get();
+            if (Constants.SUBMITTED_CAPS.equalsIgnoreCase(submission.getStatus())) {
+                return "ALREADY_SUBMITTED";
+            }
+            submission.setSubmitUrl(request.getSubmitUrl());
+            submission.setSubmissionMeta(request.getSubmissionMeta());
+            submission.setUpdatedBy(userId);
+            submission.setUpdatedDate(now);
+            formSubmissionRepository.save(submission);
+            log.info("handlePreviewSubmission updated DRAFT submissionId={}",
+                    submission.getSubmissionId());
+            return submission.getSubmissionId();
+        }
+
+        FormSubmission submission = new FormSubmission();
+        submission.setSubmissionId(UUID.randomUUID().toString());
+        submission.setFormId(request.getFormId());
+        submission.setUserId(userId);
+        submission.setSubmittedBy(userId);
+        submission.setContextId(courseId);
+        submission.setContextType(Constants.ASSIGNMENT);
+        submission.setStatus(Constants.DRAFT);
+        submission.setSubmitUrl(request.getSubmitUrl());
+        submission.setSubmissionMeta(request.getSubmissionMeta());
+        submission.setSubmittedDate(now);
+        formSubmissionRepository.save(submission);
+        log.info("handlePreviewSubmission created new DRAFT submissionId={}",
+                submission.getSubmissionId());
+        return submission.getSubmissionId();
+    }
+
+    public String validateAnswerForAssignment(FormSubmissionRequest request,
+                                              String userId) {
+        try {
+            Map<String, Object> userData = userUtils.getUsersReadData(userId);
+            if (MapUtils.isEmpty(userData))
+                return Constants.ERR_INVALID_USER_ID;
+        } catch (Exception e) {
+            log.error("validateAnswerForAssignment user lookup failed userId={}: {}",
+                    userId, e.getMessage());
+            return Constants.ERR_INVALID_USER_ID;
+        }
+        if (StringUtils.isBlank(request.getFormId()))
+            return Constants.ERR_FORM_ID_MISSING;
+        if (StringUtils.isBlank(request.getSubmitUrl()))
+            return Constants.ERR_SUBMIT_URL_MISSING;
+        return null;
+    }
+
 }

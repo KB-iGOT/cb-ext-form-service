@@ -479,4 +479,62 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse processAssignmentAnswer(FormSubmissionRequest request, String userId, boolean isDraft) {
+        ApiResponse response = new ApiResponse(API_PROCESS_ASSIGNMENT);
+        try {
+            log.info("processAssignmentAnswer {} formId={} userId={}",
+                    isDraft ? "PREVIEW" : "SUBMIT", request.getFormId(), userId);
+
+            String error = formSubmissionHelper.validateAnswerForAssignment(request, userId);
+            if (error != null)
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+
+            Optional<com.karmayogi.form.entity.Forms> formOpt = formRepository.findById(request.getFormId());
+            if (formOpt.isEmpty())
+                return buildError(response,
+                        "Assignment not found for formId=" + request.getFormId(),
+                        HttpStatus.BAD_REQUEST);
+
+            com.karmayogi.form.entity.Forms form = formOpt.get();
+            if (!Constants.ASSIGNMENT.equalsIgnoreCase(form.getContextType()))
+                return buildError(response,
+                        "Form is not of type assignment. formId=" + request.getFormId(),
+                        HttpStatus.BAD_REQUEST);
+
+            String courseId = form.getCourseId();
+
+            String submissionId = isDraft
+                    ? formSubmissionHelper.handlePreviewSubmission(request, userId, courseId)
+                    : formSubmissionHelper.handleFinalSubmission(request, userId, courseId);
+
+            if ("ALREADY_SUBMITTED".equals(submissionId)) {
+                String msg = isDraft
+                        ? "Assignment already submitted. Preview not allowed."
+                        : "Assignment already submitted. Resubmission not allowed.";
+                return buildError(response, msg, HttpStatus.BAD_REQUEST);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, submissionId);
+            data.put(FORM_ID, request.getFormId());
+            data.put(SAVED_STATUS, isDraft ? DRAFT : SUBMITTED_CAPS);
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+
+            log.info("processAssignmentAnswer success formId={} submissionId={} status={}",
+                    request.getFormId(), submissionId,
+                    isDraft ? DRAFT : SUBMITTED_CAPS);
+            return response;
+
+        } catch (Exception e) {
+            log.error("processAssignmentAnswer error formId={}: {}",
+                    request.getFormId(), e.getMessage(), e);
+            return buildError(response,
+                    "Error while processing assignment answer: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
