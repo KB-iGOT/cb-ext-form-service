@@ -59,9 +59,6 @@ public class PublicFormSubmission {
     @Column(name = "contextname")
     private String contextName;
 
-    @Column(name = "submiturl")
-    private String submitUrl;
-
     @Type(JsonBinaryType.class)
     @Column(name = "responses", columnDefinition = "jsonb")
     private List<Map<String, Object>> responses;

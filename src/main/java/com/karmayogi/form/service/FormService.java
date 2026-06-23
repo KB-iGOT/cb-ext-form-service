@@ -1,9 +1,6 @@
 package com.karmayogi.form.service;
 
-import com.karmayogi.form.model.FeedbackRequest;
-import com.karmayogi.form.model.FormRequest;
-import com.karmayogi.form.model.FormSubmissionRequest;
-import com.karmayogi.form.model.SearchCriteria;
+import com.karmayogi.form.model.*;
 import com.karmayogi.form.utils.ApiResponse;
 
 import java.util.Map;
@@ -21,4 +18,5 @@ public interface FormService {
         ApiResponse saveFeedback(FeedbackRequest request, String userId);
         ApiResponse processAssignmentAnswer(FormSubmissionRequest request, String userId, boolean isDraft);
         ApiResponse getUserSavedFormsBulk(Map<String, Object> requestBody);
+        ApiResponse publicSubmitForm(PublicFormSubmissionRequest request);
 }

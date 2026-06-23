@@ -571,4 +571,47 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse publicSubmitForm(PublicFormSubmissionRequest request) {
+        ApiResponse response = new ApiResponse(API_PUBLIC_SUBMIT_FORM);
+        try {
+            log.info("publicSubmitForm formId={} emailId={}",
+                    request != null ? request.getFormId() : null,
+                    request != null ? request.getEmailId() : null);
+
+            String error = formSubmissionHelper.validatePublicSubmission(request);
+            if (error != null) {
+                log.warn("publicSubmitForm validation failed: {}", error);
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+            }
+
+            String statusValue = request.getStatus();
+
+            String status = StringUtils.isBlank(statusValue)
+                    ? SUBMITTED_CAPS
+                    : statusValue.toUpperCase();
+
+            String submissionId = formSubmissionHelper.savePublicForm(request, status);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, submissionId);
+            data.put(FORM_ID, request.getFormId());
+            data.put(SAVED_STATUS, status);
+            data.put(RESPONSES_COUNT,
+                    request.getResponses() != null ? request.getResponses().size() : 0);
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+
+            log.info("publicSubmitForm success formId={} submissionId={}", request.getFormId(), submissionId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("publicSubmitForm error: {}", e.getMessage(), e);
+            return buildError(response,
+                    "Error while submitting form: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

@@ -1,9 +1,6 @@
 package com.karmayogi.form.controller;
 
-import com.karmayogi.form.model.FeedbackRequest;
-import com.karmayogi.form.model.FormRequest;
-import com.karmayogi.form.model.FormSubmissionRequest;
-import com.karmayogi.form.model.SearchCriteria;
+import com.karmayogi.form.model.*;
 import com.karmayogi.form.service.FormService;
 import com.karmayogi.form.utils.ApiResponse;
 import com.karmayogi.form.utils.Constants;
@@ -94,5 +91,10 @@ public class FormController {
     @PostMapping("/bulkGetApplicationsById")
     public ResponseEntity<ApiResponse> getUserApplicationsBulk(@RequestBody Map<String, Object> requestBody) {
         return ResponseEntity.ok(formService.getUserSavedFormsBulk(requestBody));
+    }
+
+    @PostMapping("/public/saveFormSubmit")
+    public ResponseEntity<ApiResponse> publicSubmitForm(@RequestBody PublicFormSubmissionRequest request) {
+        return ResponseEntity.ok(formService.publicSubmitForm(request));
     }
 }
