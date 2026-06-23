@@ -3,10 +3,7 @@ package com.karmayogi.form.utils;
 import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.entity.PublicFormSubmission;
-import com.karmayogi.form.model.FeedbackRequest;
-import com.karmayogi.form.model.FormSubmissionRequest;
-import com.karmayogi.form.model.QuestionResponse;
-import com.karmayogi.form.model.SearchCriteria;
+import com.karmayogi.form.model.*;
 import com.karmayogi.form.repository.FormSubmissionRepository;
 import com.karmayogi.form.repository.FormSubmissionSpecification;
 import com.karmayogi.form.repository.PublicFormSubmissionRepository;
@@ -705,6 +702,68 @@ public class FormSubmissionHelper {
                     return entry;
                 })
                 .toList();
+    }
+
+    public String validatePublicSubmission(PublicFormSubmissionRequest request) {
+        if (request == null) return "Request is required";
+        if (StringUtils.isBlank(request.getFormId()))
+            return Constants.ERR_FORM_ID_MISSING;
+        if (StringUtils.isBlank(request.getContextId()))
+            return Constants.ERR_CONTEXT_ID_MISSING;
+        if (StringUtils.isBlank(request.getContextName()))
+            return "contextName is required";
+        if (StringUtils.isBlank(request.getStatus()))
+            return Constants.ERR_STATUS_MISSING;
+
+        String status = request.getStatus().toUpperCase();
+        if (!Constants.DRAFT.equals(status) && !Constants.SUBMITTED_CAPS.equals(status))
+            return Constants.ERR_INVALID_STATUS;
+
+        if (StringUtils.isBlank(request.getEmailId()))
+            return "emailId is required";
+
+        if (request.getResponses() == null || request.getResponses().isEmpty()) {
+            return Constants.DRAFT.equals(status) ? null : Constants.ERR_RESPONSES_MISSING;
+        }
+
+        if (!Constants.DRAFT.equals(status)) {
+            int index = 0;
+            for (QuestionResponse qr : request.getResponses()) {
+                index++;
+                if (qr == null)
+                    return Constants.ERR_INVALID_USER_SUBMISSION + index;
+                if (StringUtils.isBlank(qr.getQuestion()))
+                    return Constants.ERR_QUESTION_TEXT_MISSING + index;
+                if (StringUtils.isBlank(qr.getQuestionId()))
+                    return Constants.ERR_QUESTION_ID_MISSING + index;
+                if (StringUtils.isBlank(qr.getAnswerType()))
+                    return Constants.ERR_ANSWER_TYPE_MISSING + qr.getQuestion();
+            }
+        }
+        return null;
+    }
+
+    public String savePublicForm(PublicFormSubmissionRequest request, String status) {
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> normalizedResponses =
+                normalizeResponses(request.getResponses());
+
+        PublicFormSubmission submission = new PublicFormSubmission();
+        submission.setSubmissionId(UUID.randomUUID().toString());
+        submission.setFormId(request.getFormId());
+        submission.setEmail(request.getEmailId());
+        submission.setContextId(request.getContextId());
+        submission.setContextName(request.getContextName());
+        submission.setVersion(request.getVersion());
+        submission.setStatus(status);
+        submission.setSubmittedDate(now);
+        submission.setResponses(normalizedResponses);
+        submission.setSubmissionMeta(request.getSubmissionMeta());
+
+        publicFormSubmissionRepository.save(submission);
+        log.info("savePublicForm saved submissionId={} formId={} emailId={}",
+                submission.getSubmissionId(), request.getFormId(), request.getEmailId());
+        return submission.getSubmissionId();
     }
 
 }
