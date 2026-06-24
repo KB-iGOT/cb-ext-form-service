@@ -107,4 +107,11 @@ public class FormController {
         ApiResponse response = formService.createPeerEvaluationSurveyForMDO(form, token);
         return new ResponseEntity<>(response, response.getResponseCode());
     }
+
+    @PostMapping("/spv/peersurvey/create")
+    public ResponseEntity<ApiResponse> createPeerEvaluationSurveyForSPV(
+            @RequestBody FormRequest form,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+        return ResponseEntity.ok(formService.createPeerEvaluationSurveyForSPV(form, token));
+    }
 }
