@@ -277,5 +277,11 @@ public class Constants {
     public static final String API_CREATE_PEER_SURVEY = "api.createPeerEvaluationSurvey.v3";
     public static final String IS_SPV_CREATED = "isSpvCreated";
     public static final String API_UPDATE_PEER_SURVEY = "api.updatePeerSurvey.v3";
+    public static final String PEER_SURVEY_ORG_ID_REQUIRED = "Organization id is required.";
+    public static final String INVALID_REQUEST = "Invalid request.";
+    public static final String INVALID_QUERY_LENGTH = "Search keyword length exceeds the maximum allowed limit.";
+    public static final String MAX_PAGE_EXCEEDED = "Page number exceeds the maximum allowed limit.";
+    public static final String MAX_SIZE_EXCEEDED = "Page size exceeds the maximum allowed limit.";
+    public static final String API_PEER_SURVEY_SEARCH = "api.peerSurvey.search.v3";
     private Constants() {}
 }

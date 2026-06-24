@@ -6,18 +6,33 @@ import com.karmayogi.form.config.cassandrautils.CassandraOperation;
 import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.model.FieldMeta;
 import com.karmayogi.form.model.FormRequest;
+import com.karmayogi.form.model.SearchCriteria;
 import com.karmayogi.form.repository.FormQuestionsRepository;
 import com.karmayogi.form.repository.FormRepository;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.filter.Filter;
+import org.elasticsearch.search.aggregations.bucket.global.ParsedGlobal;
+import org.elasticsearch.search.aggregations.bucket.nested.ParsedNested;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author anil
@@ -271,5 +286,201 @@ public class PeerSurveyHelper {
             log.warn("fetchOrgName failed: {}", e.getMessage());
             return null;
         }
+    }
+
+    public String validatePeerSurveySearch(SearchCriteria criteria, List<String> orgIds) {
+        if (CollectionUtils.isEmpty(orgIds))
+            return Constants.PEER_SURVEY_ORG_ID_REQUIRED;
+        if (criteria == null)
+            return Constants.INVALID_REQUEST;
+        if (criteria.getPage() != null && criteria.getPage() > 100)
+            return Constants.MAX_PAGE_EXCEEDED;
+        if (criteria.getSize() != null && criteria.getSize() > 50)
+            return Constants.MAX_SIZE_EXCEEDED;
+        if (StringUtils.isNotBlank(criteria.getQuery())
+                && criteria.getQuery().length() > 100)
+            return Constants.INVALID_QUERY_LENGTH;
+        return null;
+    }
+
+    public BoolQueryBuilder buildFacetQuery(List<String> orgIds, boolean isSpvUser) {
+
+        BoolQueryBuilder facetQuery = QueryBuilders.boolQuery();
+
+        facetQuery.must(
+                QueryBuilders.termQuery(Constants.CONTEXT_TYPE, Constants.PEER_VALIDATION_SURVEY)
+        );
+
+        if (!isSpvUser) {
+
+            BoolQueryBuilder nestedFacetQuery = QueryBuilders.boolQuery()
+                    .must(QueryBuilders.termsQuery("createdFor.orgId", orgIds));
+
+            facetQuery.must(
+                    QueryBuilders.nestedQuery("createdFor", nestedFacetQuery, ScoreMode.None)
+            );
+        }
+
+        return facetQuery;
+    }
+
+    public AggregationBuilder buildOrgFacetAggregation() {
+
+        return AggregationBuilders.global("org_global")
+                .subAggregation(
+                        AggregationBuilders.nested("org_nested", "createdFor")
+                                .subAggregation(
+                                        AggregationBuilders.terms("orgIdFacet")
+                                                .field("createdFor.orgId")
+                                                .size(100)
+                                                .subAggregation(
+                                                        AggregationBuilders.terms("orgNameFacet")
+                                                                .field("createdFor.orgName.keyword")
+                                                                .size(1)
+                                                )
+                                )
+                );
+    }
+
+    public List<Map<String, Object>> parseOrgFacets(SearchResponse searchResponse) {
+
+        List<Map<String, Object>> orgFacetList = new ArrayList<>();
+
+        ParsedGlobal global = searchResponse.getAggregations().get("org_global");
+        if (global == null) return orgFacetList;
+
+        ParsedNested nested = global.getAggregations().get("org_nested");
+        if (nested == null) return orgFacetList;
+
+        Terms orgTerms = nested.getAggregations().get("orgIdFacet");
+
+        for (Terms.Bucket bucket : orgTerms.getBuckets()) {
+
+            String orgId = bucket.getKeyAsString();
+            long count = bucket.getDocCount();
+
+            Terms orgNameTerms = bucket.getAggregations().get("orgNameFacet");
+
+            String orgName = "";
+
+            if (orgNameTerms != null && !orgNameTerms.getBuckets().isEmpty()) {
+                orgName = orgNameTerms.getBuckets().get(0).getKeyAsString();
+            }
+
+            Map<String, Object> obj = new HashMap<>();
+            obj.put("orgId", orgId);
+            obj.put("orgName", orgName);
+            obj.put("count", count);
+
+            orgFacetList.add(obj);
+        }
+
+        return orgFacetList;
+    }
+
+    public SearchSourceBuilder buildPeerSurveySourceBuilder(SearchCriteria criteria,
+                                                             List<String> orgIds,
+                                                             Boolean isSpvSearch) {
+        BoolQueryBuilder queryBuilder = buildPeerSurveyQuery(criteria, orgIds);
+
+        int page = criteria.getPage() != null ? criteria.getPage() : 0;
+        int size = criteria.getSize() != null ? criteria.getSize() : 10;
+
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder()
+                .query(queryBuilder)
+                .from(page * size)
+                .size(size);
+
+        if (StringUtils.isNotBlank(criteria.getSortBy())) {
+            SortOrder sortOrder = Constants.DESC.equalsIgnoreCase(criteria.getSortOrder())
+                    ? SortOrder.DESC : SortOrder.ASC;
+            sourceBuilder.sort(criteria.getSortBy(), sortOrder);
+        }
+
+        BoolQueryBuilder facetQuery = buildFacetQuery(orgIds, isSpvSearch);
+        TermsAggregationBuilder statusAgg = AggregationBuilders
+                .terms("statusFacet").field("status").size(10);
+        sourceBuilder.aggregation(AggregationBuilders
+                .filter("status_filter", facetQuery).subAggregation(statusAgg));
+
+        if (Boolean.TRUE.equals(isSpvSearch))
+            sourceBuilder.aggregation(buildOrgFacetAggregation());
+
+        return sourceBuilder;
+    }
+
+    public BoolQueryBuilder buildPeerSurveyQuery(SearchCriteria criteria,
+                                                  List<String> orgIds) {
+        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery()
+                .must(QueryBuilders.termQuery(Constants.CONTEXT_TYPE,
+                        Constants.PEER_VALIDATION_SURVEY))
+                .must(QueryBuilders.nestedQuery("createdFor",
+                        QueryBuilders.boolQuery().must(
+                                QueryBuilders.termsQuery("createdFor.orgId", orgIds)),
+                        ScoreMode.None));
+
+        if (StringUtils.isNotBlank(criteria.getQuery())) {
+            String keyword = criteria.getQuery();
+            queryBuilder.must(QueryBuilders.boolQuery()
+                    .should(QueryBuilders.matchPhraseQuery("title", keyword).boost(5))
+                    .should(QueryBuilders.matchQuery("title", keyword).boost(3))
+                    .should(QueryBuilders.termQuery("title.keyword", keyword).boost(10))
+                    .minimumShouldMatch(1));
+        }
+
+        applyFilters(queryBuilder, criteria.getFilters());
+        return queryBuilder;
+    }
+
+    private void applyFilters(BoolQueryBuilder queryBuilder,
+                              Map<String, Object> filters) {
+        if (MapUtils.isEmpty(filters)) return;
+
+        if (filters.containsKey("status")) {
+            Object status = filters.get("status");
+            if (status instanceof List)
+                queryBuilder.must(QueryBuilders.termsQuery("status", (List<?>) status));
+            else
+                queryBuilder.must(QueryBuilders.termQuery("status", status));
+        }
+
+        Object startFrom = filters.get("startDateFrom");
+        Object endTo = filters.get("endDateTo");
+        if (startFrom != null && endTo != null) {
+            long filterEnd = Long.parseLong(endTo.toString()) + (24L * 60 * 60 * 1000) - 1;
+            queryBuilder.must(QueryBuilders.boolQuery()
+                    .must(QueryBuilders.rangeQuery("startDate")
+                            .gte(Long.parseLong(startFrom.toString())))
+                    .must(QueryBuilders.rangeQuery("endDate").lte(filterEnd)));
+        }
+    }
+
+    public Map<String, Object> buildPeerSurveyResponse(SearchResponse searchResponse, Boolean isSpvSearch) {
+        List<Map<String, Object>> surveys = Arrays.stream(
+                        searchResponse.getHits().getHits())
+                .map(hit -> {
+                    Map<String, Object> survey = hit.getSourceAsMap();
+                    survey.put("id", hit.getId());
+                    return survey;
+                })
+                .collect(Collectors.toList());
+
+        Filter statusFilter = searchResponse.getAggregations().get("status_filter");
+        Terms statusFacet = statusFilter.getAggregations().get("statusFacet");
+        Map<String, Long> statusFacets = statusFacet.getBuckets().stream()
+                .collect(Collectors.toMap(
+                        Terms.Bucket::getKeyAsString,
+                        Terms.Bucket::getDocCount));
+
+        Map<String, Object> facets = new HashMap<>();
+        facets.put("status", statusFacets);
+        if (Boolean.TRUE.equals(isSpvSearch))
+            facets.put("orgNames", parseOrgFacets(searchResponse));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put(Constants.COUNT, searchResponse.getHits().getTotalHits());
+        response.put(Constants.CONTENT, surveys);
+        response.put("facets", facets);
+        return response;
     }
 }
