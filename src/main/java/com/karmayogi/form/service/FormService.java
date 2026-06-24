@@ -23,4 +23,5 @@ public interface FormService {
         ApiResponse createPeerEvaluationSurveyForSPV(FormRequest form, String token);
         ApiResponse updatePeerSurvey(FormRequest request, String token);
         ApiResponse searchPeerSurvey(SearchCriteria criteria, String token, boolean isSpvSearch);
+        ApiResponse publishPeerSurvey(String formId, String token);
 }

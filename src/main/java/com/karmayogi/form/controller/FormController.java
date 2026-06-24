@@ -139,4 +139,9 @@ public class FormController {
 
         return formService.searchPeerSurvey(criteria, token, true);
     }
+
+    @PutMapping("/peersurvey/publish/{surveyId}")
+    public ResponseEntity<ApiResponse> publishPeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return ResponseEntity.ok(formService.publishPeerSurvey(surveyId, token));
+    }
 }

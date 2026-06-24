@@ -483,4 +483,33 @@ public class PeerSurveyHelper {
         response.put("facets", facets);
         return response;
     }
+
+    public String validatePublishPeerSurvey(Forms survey) {
+        Map<String, Object> additionalProps = survey.getAdditionalProperties();
+
+        Object triggerObj = additionalProps != null ? additionalProps.get(Constants.TRIGGER_AFTER) : null;
+        String identifier = additionalProps != null ? (String) additionalProps.get(Constants.IDENTIFIER) : null;
+
+        if (triggerObj == null)
+            return "Trigger after value missing";
+        if (identifier == null)
+            return "identifier is missing";
+
+        int triggerAfter;
+        try {
+            triggerAfter = Integer.parseInt(triggerObj.toString());
+        } catch (Exception e) {
+            return "Invalid trigger after value";
+        }
+
+        if (survey.getEndDate() == null)
+            return "End date missing";
+
+        Instant endDate    = Instant.ofEpochMilli(survey.getEndDate());
+        Instant minAllowed = Instant.now().plus(triggerAfter, java.time.temporal.ChronoUnit.DAYS);
+        if (endDate.isBefore(minAllowed))
+            return "End date must be greater than current date + triggerAfter days";
+
+        return null;
+    }
 }
