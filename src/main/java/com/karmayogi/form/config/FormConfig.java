@@ -57,5 +57,6 @@ public class FormConfig {
     private List<String> validationUrlAllowedDomains;
     private List<String> organisationFields;
     private int peerSurveyMaxCustomQuestions;
+    private String formIndexV2;
 
 }

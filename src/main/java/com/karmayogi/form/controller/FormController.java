@@ -126,4 +126,17 @@ public class FormController {
         request.setFormId(surveyId);
         return ResponseEntity.ok(formService.updatePeerSurvey(request, token));
     }
+
+    @PostMapping("/mdo/peersurvey/search")
+    public ApiResponse searchMdoPeerSurveys(
+            @RequestBody SearchCriteria criteria, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return formService.searchPeerSurvey(criteria, token, false);
+    }
+
+    @PostMapping("/spv/peersurvey/search")
+    public ApiResponse searchSpvPeerSurveys(
+            @RequestBody SearchCriteria criteria, @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        return formService.searchPeerSurvey(criteria, token, true);
+    }
 }

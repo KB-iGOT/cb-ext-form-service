@@ -4,6 +4,7 @@ import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.entity.Forms;
+import com.karmayogi.form.exception.CustomException;
 import com.karmayogi.form.model.*;
 import com.karmayogi.form.repository.FormQuestionsRepository;
 import com.karmayogi.form.repository.FormRepository;
@@ -14,7 +15,21 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.filter.Filter;
+import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.karmayogi.form.utils.Constants.*;
 import static com.karmayogi.form.utils.ResponseUtil.buildError;
@@ -49,6 +65,7 @@ public class FormServiceImpl implements FormService{
     private final FormSubmissionHelper formSubmissionHelper;
     private final AccessTokenValidator accessTokenValidator;
     private final PeerSurveyHelper peerSurveyHelper;
+    private final RestHighLevelClient client;
 
     @Override
     public Map<String, Object> searchForms(Map<String, Object> request) {
@@ -751,4 +768,57 @@ public class FormServiceImpl implements FormService{
         }
     }
 
+    @Override
+    public ApiResponse searchPeerSurvey(SearchCriteria criteria, String token, boolean isSpvSearch) {
+        List<String> orgIds = resolveOrgIds(criteria, token, isSpvSearch);
+        return searchPeerSurveys(criteria, orgIds, isSpvSearch);
+    }
+
+    public List<String> resolveOrgIds(SearchCriteria criteria,
+                                      String token,
+                                      boolean isSpvSearch) {
+        Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+        Map<String, Object> filters = criteria.getFilters();
+
+        if (!isSpvSearch) {
+            String userId = (String) tokenData.get(USER_ID);
+            String rootOrgId = peerSurveyHelper.fetchRecordsFromDB(KEYSPACE_SUNBIRD, USER,
+                    Map.of(ID, userId), List.of(ROOT_ORG_ID));
+            return StringUtils.isNotBlank(rootOrgId)
+                    ? List.of(rootOrgId)
+                    : Collections.emptyList();
+        }
+
+        if (MapUtils.isEmpty(filters) || CollectionUtils.isEmpty((List<String>) filters.get("orgIds")))
+            throw new CustomException("400", "orgIds is mandatory for spv search", HttpStatus.BAD_REQUEST);
+
+        return ((List<?>) filters.get("orgIds")).stream()
+                .map(Object::toString)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    public ApiResponse searchPeerSurveys(SearchCriteria criteria,
+                                         List<String> orgIds,
+                                         Boolean isSpvSearch) {
+        ApiResponse apiResponse = new ApiResponse(API_PEER_SURVEY_SEARCH);
+        try {
+            String validation = peerSurveyHelper.validatePeerSurveySearch(criteria, orgIds);
+            if (validation != null)
+                return buildError(apiResponse, validation, HttpStatus.BAD_REQUEST);
+
+            SearchSourceBuilder sourceBuilder = peerSurveyHelper.buildPeerSurveySourceBuilder(criteria, orgIds, isSpvSearch);
+            SearchRequest searchRequest = new SearchRequest(formConfig.getFormIndexV2()).source(sourceBuilder);
+            SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+            Map<String, Object> response = peerSurveyHelper.buildPeerSurveyResponse(searchResponse, isSpvSearch);
+            apiResponse.setResponse(Collections.singletonMap(RESPONSE, response));
+            return apiResponse;
+
+        } catch (Exception e) {
+            log.error("searchPeerSurveys error: {}", e.getMessage(), e);
+            return buildError(apiResponse, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
