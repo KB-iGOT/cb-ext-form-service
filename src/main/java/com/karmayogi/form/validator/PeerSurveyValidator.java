@@ -12,6 +12,7 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -188,5 +189,11 @@ public class PeerSurveyValidator extends BaseFormValidator {
             }
         }
         return null;
+    }
+
+    @Override
+    public String validateForUpdate(FormRequest request, String userId)
+            throws IOException {
+        return validateTitleAndVersion(request);
     }
 }

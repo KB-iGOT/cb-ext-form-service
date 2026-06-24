@@ -114,4 +114,16 @@ public class FormController {
             @RequestHeader(X_AUTH_TOKEN) String token) {
         return ResponseEntity.ok(formService.createPeerEvaluationSurveyForSPV(form, token));
     }
+
+    @PutMapping("/mdo/peersurvey/{surveyId}")
+    public ResponseEntity<ApiResponse> updateMdoPeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
+        request.setFormId(surveyId);
+        return ResponseEntity.ok(formService.updatePeerSurvey(request, token));
+    }
+
+    @PutMapping("/spv/peersurvey/{surveyId}")
+    public ResponseEntity<ApiResponse> updateSpvPeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
+        request.setFormId(surveyId);
+        return ResponseEntity.ok(formService.updatePeerSurvey(request, token));
+    }
 }
