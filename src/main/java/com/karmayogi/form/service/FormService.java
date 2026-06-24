@@ -20,4 +20,5 @@ public interface FormService {
         ApiResponse getUserSavedFormsBulk(Map<String, Object> requestBody);
         ApiResponse publicSubmitForm(PublicFormSubmissionRequest request);
         ApiResponse createPeerEvaluationSurveyForMDO(FormRequest form, String token);
+        ApiResponse createPeerEvaluationSurveyForSPV(FormRequest form, String token);
 }

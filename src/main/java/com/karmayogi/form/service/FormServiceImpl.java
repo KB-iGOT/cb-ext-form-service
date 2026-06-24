@@ -656,4 +656,35 @@ public class FormServiceImpl implements FormService{
         }
     }
 
+    @Override
+    public ApiResponse createPeerEvaluationSurveyForSPV(FormRequest form, String token) {
+        ApiResponse response = new ApiResponse(API_CREATE_PEER_SURVEY);
+        try {
+            if (CollectionUtils.isEmpty(form.getCreatedFor()))
+                return buildError(response,
+                        "Invalid request: Organization ID (createdFor) cannot be empty.",
+                        HttpStatus.BAD_REQUEST);
+
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response,
+                        "Authentication failed: Invalid or expired access token.",
+                        HttpStatus.UNAUTHORIZED);
+
+            String userId = (String) tokenData.get(USER_ID);
+            form.setContextType(PEER_VALIDATION_SURVEY);
+
+            Map<String, Object> additionalProps = MapUtils.isEmpty(form.getAdditionalProperties()) ? new HashMap<>() : form.getAdditionalProperties();
+            additionalProps.put(IS_SPV_CREATED, Boolean.TRUE);
+            form.setAdditionalProperties(additionalProps);
+
+            return createForm(form, userId);
+
+        } catch (Exception e) {
+            log.error("createPeerEvaluationSurveyForSPV error: {}", e.getMessage(), e);
+            return buildError(response, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
