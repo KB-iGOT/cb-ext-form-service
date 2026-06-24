@@ -27,6 +27,7 @@ public class FormEntityMapper {
 
 
     private final ObjectMapper objectMapper;
+    private final PeerSurveyHelper peerSurveyHelper;
 
     /**
      * Maps FormRequest to Forms JPA entity
@@ -67,6 +68,10 @@ public class FormEntityMapper {
 
         if (CollectionUtils.isNotEmpty(request.getMeta())) {
             form.setMeta(request.getMeta());
+        }
+
+        if (StringUtils.isNotBlank(request.getEndDate())) {
+            form.setEndDate(peerSurveyHelper.parseEndDate(request.getEndDate()));
         }
 
         return form;
@@ -215,7 +220,7 @@ public class FormEntityMapper {
         if (MapUtils.isNotEmpty(request.getAdditionalProperties()))
             form.setAdditionalProperties(request.getAdditionalProperties());
         if (StringUtils.isNotBlank(request.getEndDate()))
-            form.setEndDate(parseEndDate(request.getEndDate()));
+            form.setEndDate(peerSurveyHelper.parseEndDate(request.getEndDate()));
         if (request.getClientVersion() != null)
             form.setClientVersion(request.getClientVersion().doubleValue());
         if (StringUtils.isNotBlank(request.getStatus()))

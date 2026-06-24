@@ -276,5 +276,6 @@ public class Constants {
     public static final String NUMERIC_RATING = "numericrating";
     public static final String API_CREATE_PEER_SURVEY = "api.createPeerEvaluationSurvey.v3";
     public static final String IS_SPV_CREATED = "isSpvCreated";
+    public static final String API_UPDATE_PEER_SURVEY = "api.updatePeerSurvey.v3";
     private Constants() {}
 }

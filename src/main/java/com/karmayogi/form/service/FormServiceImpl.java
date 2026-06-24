@@ -213,7 +213,7 @@ public class FormServiceImpl implements FormService{
             if (validator == null) {
                 return buildError(response, ERR_INVALID_CONTEXT_TYPE, HttpStatus.BAD_REQUEST);
             }
-            String error = validator.validate(request, userId);
+            String error = validator.validateForUpdate(request, userId);
             if (error != null) {
                 log.warn("updateForm validation failed formId={}: {}", formId, error);
                 return buildError(response, error, HttpStatus.BAD_REQUEST);
@@ -683,6 +683,70 @@ public class FormServiceImpl implements FormService{
         } catch (Exception e) {
             log.error("createPeerEvaluationSurveyForSPV error: {}", e.getMessage(), e);
             return buildError(response, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ApiResponse updatePeerSurvey(FormRequest request, String token) {
+        ApiResponse response = new ApiResponse(API_UPDATE_PEER_SURVEY);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response,
+                        "Invalid or expired access token", HttpStatus.UNAUTHORIZED);
+
+            String userId = (String) tokenData.get("userId");
+            String rootOrgId = peerSurveyHelper.fetchRecordsFromDB(KEYSPACE_SUNBIRD, USER, Map.of(ID, userId), Arrays.asList(ROOT_ORG_ID));
+
+            Optional<Forms> formOpt = formRepository.findById(request.getFormId());
+            if (formOpt.isEmpty())
+                return buildError(response, ERR_FORM_NOT_FOUND, HttpStatus.BAD_REQUEST);
+
+            Forms existingSurvey = formOpt.get();
+
+            String surveyOrgId = existingSurvey.getOrgId();
+            if (!StringUtils.equals(surveyOrgId, rootOrgId))
+                return buildError(response,
+                        "User not authorized to update this survey",
+                        HttpStatus.FORBIDDEN);
+
+            if (!"Draft".equalsIgnoreCase(existingSurvey.getStatus()))
+                return buildError(response,
+                        "Survey can only be edited in Draft state",
+                        HttpStatus.BAD_REQUEST);
+
+            CreatedFor cf = new CreatedFor();
+            cf.setOrgId(existingSurvey.getOrgId());
+            cf.setOrgName(existingSurvey.getOrgName());
+            request.setCreatedFor(List.of(cf));
+            request.setStatus(null);
+
+
+            String error = peerSurveyHelper.validatePeerSurveyUpdate(request);
+            if (error != null)
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+
+            Long endDate = peerSurveyHelper.parseEndDate(request.getEndDate());
+            String overlapError = peerSurveyHelper.validateActiveSurveyOverlap(
+                    (String) request.getAdditionalProperties().get(Constants.IDENTIFIER),
+                    request.getCreatedFor().get(0).getOrgId(),
+                    System.currentTimeMillis(),
+                    endDate,
+                    request.getFormId());
+            if (overlapError != null)
+                return buildError(response, overlapError, HttpStatus.BAD_REQUEST);
+
+            String systemError = peerSurveyHelper.validateSystemGeneratedProtection(request);
+            if (systemError != null)
+                return buildError(response, systemError, HttpStatus.BAD_REQUEST);
+
+            return updateForm(request, userId);
+
+        } catch (Exception e) {
+            log.error("updatePeerSurvey error: {}", e.getMessage(), e);
+            return buildError(response,
+                    "Error while updating peer survey: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

@@ -1,8 +1,8 @@
 package com.karmayogi.form.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.karmayogi.form.config.FormConfig;
 import com.karmayogi.form.config.cassandrautils.CassandraOperation;
-import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.model.FieldMeta;
 import com.karmayogi.form.model.FormRequest;
@@ -32,6 +32,7 @@ public class PeerSurveyHelper {
     private final ObjectMapper objectMapper;
     private final CassandraOperation cassandraOperation;
     private final FormQuestionsRepository formQuestionsRepository;
+    private final FormConfig formConfig;
 
     public boolean peerSurveyExists(String identifier, String orgId,
                                     List<String> statuses) {
@@ -197,23 +198,37 @@ public class PeerSurveyHelper {
     public String validateSystemGeneratedProtection(FormRequest request) {
         List<FieldMeta> incomingFields = request.getFields();
 
-        // fetch existing fields from form_questions table → map to FieldMeta
-        List<FormQuestions> existingEntities =
-                formQuestionsRepository.findByFormIdOrderByQuestionOrderAsc(
-                        request.getFormId());
 
-        List<FieldMeta> existingFields = existingEntities.stream()
-                .map(q -> {
-                    FieldMeta f = new FieldMeta();
-                    f.setId(q.getQuestionId());
-                    f.setName(q.getName());
-                    f.setFieldType(q.getFieldType());
-                    f.setAdditionalProperties(q.getAdditionalProperties());
-                    return f;
-                })
-                .toList();
+        com.karmayogi.form.entity.Forms existingForm = formsJpaRepository.findById(request.getFormId()).orElse(null);
+        if (existingForm == null)
+            return Constants.ERR_FORM_NOT_FOUND;
 
-        // count custom (non-system) questions in incoming
+        List<FieldMeta> existingFields;
+
+
+        if (existingForm.getClientVersion() != null
+                && existingForm.getClientVersion() >= formConfig.getV2ClientVersion()) {
+            List<Map<String, Object>> questions = (List<Map<String, Object>>) existingForm.getQuestions();
+            existingFields = CollectionUtils.isEmpty(questions)
+                    ? Collections.emptyList()
+                    : questions.stream()
+                    .map(q -> objectMapper.convertValue(q, FieldMeta.class))
+                    .toList();
+        } else {
+            existingFields = formQuestionsRepository
+                    .findByFormIdOrderByQuestionOrderAsc(request.getFormId())
+                    .stream()
+                    .map(q -> {
+                        FieldMeta f = new FieldMeta();
+                        f.setId(q.getQuestionId());
+                        f.setName(q.getName());
+                        f.setFieldType(q.getFieldType());
+                        f.setAdditionalProperties(q.getAdditionalProperties());
+                        return f;
+                    })
+                    .toList();
+        }
+
         long customCount = incomingFields.stream()
                 .filter(f -> !Boolean.TRUE.equals(
                         MapUtils.getBoolean(f.getAdditionalProperties(),
