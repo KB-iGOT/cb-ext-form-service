@@ -821,4 +821,67 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    public ApiResponse publishPeerSurvey(String formId, String token) {
+        ApiResponse response = new ApiResponse(API_PUBLISH_PEER_SURVEY);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response, ERR_INVALID_TOKEN,
+                        HttpStatus.UNAUTHORIZED);
+
+            String userOrgId = peerSurveyHelper.fetchRecordsFromDB(
+                    KEYSPACE_SUNBIRD, USER,
+                    Map.of(ID, (String) tokenData.get(USER_ID)),
+                    List.of(ROOT_ORG_ID));
+
+            Optional<Forms> formOpt = formRepository.findById(formId);
+            if (formOpt.isEmpty())
+                return buildError(response, ERR_FORM_NOT_FOUND, HttpStatus.BAD_REQUEST);
+
+            Forms survey = formOpt.get();
+
+            if (!DRAFT.equalsIgnoreCase(survey.getStatus()))
+                return buildError(response,
+                        SURVEY_PUBLISHED_ERROR_MESSAGE,
+                        HttpStatus.BAD_REQUEST);
+
+            if (!StringUtils.equals(survey.getOrgId(), userOrgId))
+                return buildError(response,
+                        PEER_SURVEY_UNAUTHORIZED,
+                        HttpStatus.FORBIDDEN);
+
+            String validationError = peerSurveyHelper.validatePublishPeerSurvey(survey);
+            if (validationError != null)
+                return buildError(response, validationError, HttpStatus.BAD_REQUEST);
+
+            String identifier = (String) survey.getAdditionalProperties().get(Constants.IDENTIFIER);
+            long startDate = survey.getStartDate() != null ? survey.getStartDate() : System.currentTimeMillis();
+            String overlapError = peerSurveyHelper.validateActiveSurveyOverlap(identifier, survey.getOrgId(), startDate, survey.getEndDate(), formId);
+            if (overlapError != null)
+                return buildError(response,
+                        SURVEY_EXITS,
+                        HttpStatus.CONFLICT);
+
+            long now = System.currentTimeMillis();
+            survey.setStatus(ACTIVE);
+            survey.setStartDate(now);
+            survey.setUpdatedAt(now);
+            formRepository.saveAndFlush(survey);
+
+            formEventPublisher.publishFormUpdated(survey, null, null);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(MESSAGE, SURVEY_PUBLISHED_SUCCESSFULLY);
+            response.setResponse(responseMap);
+
+            log.info("publishPeerSurvey success formId={}", formId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("publishPeerSurvey error formId={}: {}", formId, e.getMessage(), e);
+            return buildError(response, "Error while publishing survey: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        }
 }

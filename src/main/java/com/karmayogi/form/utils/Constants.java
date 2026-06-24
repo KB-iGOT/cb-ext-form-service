@@ -283,5 +283,13 @@ public class Constants {
     public static final String MAX_PAGE_EXCEEDED = "Page number exceeds the maximum allowed limit.";
     public static final String MAX_SIZE_EXCEEDED = "Page size exceeds the maximum allowed limit.";
     public static final String API_PEER_SURVEY_SEARCH = "api.peerSurvey.search.v3";
+    public static final String API_PUBLISH_PEER_SURVEY = "api.publishPeerSurvey.v3";
+    public static final String MESSAGE = "message";
+    public static final String SURVEY_PUBLISHED_SUCCESSFULLY = "Survey published successfully";
+    public static final String SURVEY_EXITS   = "A survey already exists for this course";
+    public static final String SURVEY_PUBLISHED_ERROR_MESSAGE = "Survey can only be published from Draft state";
+    public static final String PEER_SURVEY_UNAUTHORIZED = "User not authorized to publish this survey";
+    public static final String ERR_INVALID_TOKEN = "Invalid or expired token";
+    public static final String ACTIVE = "Active";
     private Constants() {}
 }
