@@ -1,8 +1,10 @@
 package com.karmayogi.form.validator;
 
 import com.karmayogi.form.config.FormConfig;
+import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.model.FieldMeta;
 import com.karmayogi.form.model.FormRequest;
+import com.karmayogi.form.repository.FormRepository;
 import com.karmayogi.form.utils.Constants;
 import com.karmayogi.form.utils.ContentUtils;
 import org.apache.commons.collections4.CollectionUtils;
@@ -10,7 +12,6 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,14 +24,17 @@ public class PeerSurveyValidator extends BaseFormValidator {
 
     private final FormConfig formConfig;
     private final ContentUtils contentUtils;
+    private final FormRepository formsJpaRepository;
 
     public PeerSurveyValidator(InputValidator inputValidator,
                                com.karmayogi.form.utils.UserUtils utilityService,
                                FormConfig formConfig,
-                               ContentUtils contentUtils) {
+                               ContentUtils contentUtils,
+                               FormRepository formsJpaRepository) {
         super(inputValidator, utilityService, formConfig);
         this.formConfig = formConfig;
         this.contentUtils = contentUtils;
+        this.formsJpaRepository = formsJpaRepository;
     }
 
     @Override
@@ -42,12 +46,16 @@ public class PeerSurveyValidator extends BaseFormValidator {
     @Override
     protected String validateContextSpecific(FormRequest request, String userId) {
 
+        String clientVersionError = validateTitleAndVersion(request);
+        if (clientVersionError != null) {
+            return clientVersionError;
+        }
+
         Map<String, Object> additionalProps = request.getAdditionalProperties();
         if (MapUtils.isEmpty(additionalProps)) {
             return Constants.PEER_SURVEY_ADDITIONAL_PROPERTIES_MISSING;
         }
 
-        // 3. Shared algorithm, peer-survey's OWN narrower allow-list (Layer 2)
         String propsError = validateAdditionalProperties(
                 additionalProps,
                 formConfig.getPeerSurveyAllowedAdditionalProperties());
@@ -55,7 +63,6 @@ public class PeerSurveyValidator extends BaseFormValidator {
             return propsError;
         }
 
-        // 4. identifier required → content-service lookup
         Object identifier = additionalProps.get(Constants.IDENTIFIER);
         if (identifier == null) {
             return Constants.PEER_SURVEY_ADDITIONAL_PROPERTIES_MISSING;
@@ -73,7 +80,6 @@ public class PeerSurveyValidator extends BaseFormValidator {
             return Constants.PEER_SURVEY_ONLY_LIVE_COURSE_ALLOWED;
         }
 
-        // 5. triggerAfter required, within configured range, multiple of configured step
         Object triggerObj = additionalProps.get(Constants.TRIGGER_AFTER);
         if (triggerObj == null) {
             return Constants.PEER_SURVEY_ADDITIONAL_PROPERTIES_MISSING;
@@ -92,7 +98,6 @@ public class PeerSurveyValidator extends BaseFormValidator {
             return Constants.PEER_SURVEY_TRIGGER_AFTER_RANGE_INVALID;
         }
 
-        // 6. completionLookBack optional, within configured range, must exceed triggerAfter
         Object lookBackObj = additionalProps.get(Constants.COMPLETION_LOOK_BACK);
         if (lookBackObj != null) {
             int lookBack;
@@ -111,8 +116,6 @@ public class PeerSurveyValidator extends BaseFormValidator {
             }
         }
 
-        // 7. thumbnail required, must be a valid URL (intentional
-        // exception to the usual "reject URLs" rule)
         String thumbnail = (String) additionalProps.get(Constants.THUMBNAIL);
         if (StringUtils.isBlank(thumbnail)) {
             return Constants.PEER_SURVEY_THUMBNAIL_MISSING;
@@ -121,35 +124,45 @@ public class PeerSurveyValidator extends BaseFormValidator {
             return Constants.PEER_SURVEY_THUMBNAIL_INVALID;
         }
 
-        // 8. duration required (presence only)
         String duration = (String) additionalProps.get(Constants.DURATION);
         if (StringUtils.isBlank(duration)) {
             return Constants.PEER_SURVEY_DURATION_MISSING;
         }
 
-        // 9. Optional extra questions (capped, narrow fieldType set)
-        return validatePeerSurveyFields(request.getFields());
-    }
+        String fieldsError = validatePeerSurveyFields(request.getFields());
+        if (fieldsError != null) return fieldsError;
 
-    // ─────────────────────────────────────────────────────────────
-    // VALIDATE FIELDS — peer-survey's own narrow rules
-    // ─────────────────────────────────────────────────────────────
+        String orgId = CollectionUtils.isNotEmpty(request.getCreatedFor()) ? request.getCreatedFor().get(0).getOrgId() : null;
+        if (StringUtils.isNotBlank((String) identifier) && StringUtils.isNotBlank(orgId)) {
+            List<Forms> existing =
+                    formsJpaRepository.findExistingPeerSurveys(
+                            Constants.PEER_VALIDATION_SURVEY,
+                            orgId,
+                            (String) identifier,
+                            java.util.List.of("Draft", "Active"));
+            if (CollectionUtils.isNotEmpty(existing))
+                return Constants.PEER_SURVEY_ALREADY_EXISTS;
+        }
+
+        return null;
+    }
 
     private String validatePeerSurveyFields(List<FieldMeta> fields) {
         if (CollectionUtils.isEmpty(fields)) {
-            return null; // extra questions are optional
+            return null;
         }
 
-        if (fields.size() > formConfig.getPeerSurveyMaxFields()) {
+        long questionCount = fields.stream()
+                .filter(f -> !formConfig.getNonQuestionFieldTypes().contains(f.getFieldType()))
+                .count();
+        if (questionCount > formConfig.getPeerSurveyMaxCustomQuestions()) {
             return Constants.PEER_SURVEY_MAX_ADDITIONAL_QUESTIONS;
         }
-        List<Integer> fieldOrders = new ArrayList<>();
+
         for (FieldMeta field : fields) {
 
-            // systemGenerated explicitly forbidden for peer-survey questions
             if (MapUtils.isNotEmpty(field.getAdditionalProperties())) {
-                Object systemGen = field.getAdditionalProperties()
-                        .get(Constants.SYSTEM_GENERATED);
+                Object systemGen = field.getAdditionalProperties().get(Constants.SYSTEM_GENERATED);
                 if (Boolean.TRUE.equals(systemGen)) {
                     return Constants.PEER_SURVEY_SYSTEM_GENERATED_NOT_ALLOWED;
                 }
@@ -166,26 +179,14 @@ public class PeerSurveyValidator extends BaseFormValidator {
                 return Constants.PEER_SURVEY_FIELD_TYPE_INVALID;
             }
 
-            // Original behavior: blank check
             if (StringUtils.isBlank(field.getName())) {
                 return Constants.PEER_SURVEY_QUESTION_NAME_MISSING;
             }
-
-            if (field.getOrder() == null) {
-                return Constants.ERR_FIELD_ORDER_MISSING;
-            }
-            if (field.getOrder() <= 0 || fieldOrders.contains(field.getOrder())) {
-                return Constants.ERR_INVALID_FIELD_ORDER;
-            }
-            fieldOrders.add(field.getOrder());
-            // Added: Shared field name safety check (Layer 2) —
-            // see class-level note on this behavior change
             String nameError = validateFieldName(field.getName());
             if (nameError != null) {
                 return nameError;
             }
         }
-
-        return null; // valid ✅
+        return null;
     }
 }

@@ -47,6 +47,8 @@ public class FormServiceImpl implements FormService{
     private final FormCreateHelper formCreateHelper;
     private final FormSearchHelper formSearchHelper;
     private final FormSubmissionHelper formSubmissionHelper;
+    private final AccessTokenValidator accessTokenValidator;
+    private final PeerSurveyHelper peerSurveyHelper;
 
     @Override
     public Map<String, Object> searchForms(Map<String, Object> request) {
@@ -130,6 +132,10 @@ public class FormServiceImpl implements FormService{
             if (error != null) {
                 log.warn("createForm validation failed formId={}: {}", formId, error);
                 return buildError(response, error, HttpStatus.BAD_REQUEST);
+            }
+
+            if (PEER_VALIDATION_SURVEY.equalsIgnoreCase(request.getContextType())) {
+                peerSurveyHelper.mergeSystemGeneratedQuestions(request);
             }
 
             formEntityMapper.setFormStatus(request);
@@ -614,4 +620,40 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse createPeerEvaluationSurveyForMDO(FormRequest form,
+                                                        String token) {
+        ApiResponse response = new ApiResponse(API_CREATE_PEER_SURVEY);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response,
+                        "Authentication failed: Invalid or expired access token.",
+                        HttpStatus.UNAUTHORIZED);
+
+            String userId  = (String) tokenData.get(USER_ID);
+            String rootOrgId = peerSurveyHelper.fetchRecordsFromDB(KEYSPACE_SUNBIRD, USER, Map.of(ID, userId), Arrays.asList(ROOT_ORG_ID));
+            String orgName = peerSurveyHelper.fetchRecordsFromDB(KEYSPACE_SUNBIRD, ORGANISATION, Map.of(ID, rootOrgId), Arrays.asList(ORG_NAME));
+
+            form.setContextType(PEER_VALIDATION_SURVEY);
+
+            CreatedFor createdFor = new CreatedFor();
+            createdFor.setOrgId(rootOrgId);
+            createdFor.setOrgName(orgName);
+            form.setCreatedFor(List.of(createdFor));
+
+            Map<String, Object> additionalProps = MapUtils.isEmpty(form.getAdditionalProperties()) ? new HashMap<>() : form.getAdditionalProperties();
+            additionalProps.put(IS_SPV_CREATED, Boolean.FALSE);
+            form.setAdditionalProperties(additionalProps);
+
+            return createForm(form, userId);
+
+        } catch (Exception e) {
+            log.error("createPeerEvaluationSurveyForMDO error: {}", e.getMessage(), e);
+            return buildError(response, ERR_INTERNAL + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
