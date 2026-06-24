@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 import static com.karmayogi.form.utils.Constants.X_AUTHENTICATED_USER_ID;
+import static com.karmayogi.form.utils.Constants.X_AUTH_TOKEN;
 
 /**
  * @author anil
@@ -96,5 +97,14 @@ public class FormController {
     @PostMapping("/public/saveFormSubmit")
     public ResponseEntity<ApiResponse> publicSubmitForm(@RequestBody PublicFormSubmissionRequest request) {
         return ResponseEntity.ok(formService.publicSubmitForm(request));
+    }
+
+    @PostMapping("/mdo/peersurvey/create")
+    public ResponseEntity<Object> createPeerEvaluationSurveyForMDO(
+            @RequestBody FormRequest form,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        ApiResponse response = formService.createPeerEvaluationSurveyForMDO(form, token);
+        return new ResponseEntity<>(response, response.getResponseCode());
     }
 }

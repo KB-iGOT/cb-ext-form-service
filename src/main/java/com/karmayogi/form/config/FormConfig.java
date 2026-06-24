@@ -55,5 +55,7 @@ public class FormConfig {
     private int maxAllowedFilterListSize;
     private List<String> validationUrlAllowedKeys;
     private List<String> validationUrlAllowedDomains;
+    private List<String> organisationFields;
+    private int peerSurveyMaxCustomQuestions;
 
 }
