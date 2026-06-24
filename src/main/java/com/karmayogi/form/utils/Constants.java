@@ -291,5 +291,14 @@ public class Constants {
     public static final String PEER_SURVEY_UNAUTHORIZED = "User not authorized to publish this survey";
     public static final String ERR_INVALID_TOKEN = "Invalid or expired token";
     public static final String ACTIVE = "Active";
+    public static final String API_ARCHIVE_PEER_SURVEY = "api.archivePeerSurvey.v3";
+    public static final String SURVEY_ARCHIVED = "Survey archived successfully";
+    public static final String ENDED = "Ended";
+    public static final String ERR_ARCHIVE_INVALID_STATUS = "Survey can only be Archived from Ended state";
+    public static final String ERR_END_INVALID_STATUS     = "Survey can only be ended from Active state";
+    public static final String ERR_UNAUTHORIZED_ARCHIVE = "User not authorized to archive this survey";
+    public static final String ARCHIVED = "Archived";
+    public static final String SURVEY_ENDED_SUCCESSFULLY    = "Survey ended successfully";
+    public static final String API_END_PEER_SURVEY = "api.endPeerSurvey.v3";
     private Constants() {}
 }

@@ -883,5 +883,108 @@ public class FormServiceImpl implements FormService{
             return buildError(response, "Error while publishing survey: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public ApiResponse archivePeerSurvey(String formId, String token) {
+        ApiResponse response = new ApiResponse(API_ARCHIVE_PEER_SURVEY);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response, ERR_INVALID_TOKEN, HttpStatus.UNAUTHORIZED);
+
+            String userOrgId = peerSurveyHelper.fetchRecordsFromDB(
+                    KEYSPACE_SUNBIRD, USER,
+                    Map.of(ID, (String) tokenData.get(USER_ID)),
+                    List.of(ROOT_ORG_ID));
+
+            Optional<Forms> formOpt = formRepository.findById(formId);
+            if (formOpt.isEmpty())
+                return buildError(response, ERR_FORM_NOT_FOUND, HttpStatus.BAD_REQUEST);
+
+            Forms survey = formOpt.get();
+
+            if (!StringUtils.equals(survey.getOrgId(), userOrgId))
+                return buildError(response,
+                        ERR_UNAUTHORIZED_ARCHIVE,
+                        HttpStatus.FORBIDDEN);
+
+            if (!ENDED.equalsIgnoreCase(survey.getStatus()))
+                return buildError(response,
+                        ERR_ARCHIVE_INVALID_STATUS,
+                        HttpStatus.BAD_REQUEST);
+
+            long now = System.currentTimeMillis();
+            survey.setStatus(ARCHIVED);
+            survey.setArchivedDate(now);
+            survey.setUpdatedAt(now);
+            formRepository.saveAndFlush(survey);
+
+            formEventPublisher.publishFormUpdated(survey, null, null);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(MESSAGE, SURVEY_ARCHIVED);
+            response.setResponse(responseMap);
+
+            log.info("archivePeerSurvey success formId={}", formId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("archivePeerSurvey error formId={}: {}", formId, e.getMessage(), e);
+            return buildError(response, "Error while archiving survey: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public ApiResponse endPeerSurvey(String formId, String token) {
+        ApiResponse response = new ApiResponse(API_END_PEER_SURVEY);
+        try {
+
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response, ERR_INVALID_TOKEN, HttpStatus.UNAUTHORIZED);
+
+            String userOrgId = peerSurveyHelper.fetchRecordsFromDB(
+                    KEYSPACE_SUNBIRD, USER,
+                    Map.of(ID, (String) tokenData.get(USER_ID)),
+                    List.of(ROOT_ORG_ID));
+
+            Optional<Forms> formOpt = formRepository.findById(formId);
+            if (formOpt.isEmpty())
+                return buildError(response, ERR_FORM_NOT_FOUND, HttpStatus.BAD_REQUEST);
+
+            Forms survey = formOpt.get();
+
+            if (!StringUtils.equals(survey.getOrgId(), userOrgId))
+                return buildError(response,
+                        ERR_UNAUTHORIZED_ARCHIVE,
+                        HttpStatus.FORBIDDEN);
+
+            if (!ACTIVE.equalsIgnoreCase(survey.getStatus()))
+                return buildError(response,
+                        ERR_END_INVALID_STATUS,
+                        HttpStatus.BAD_REQUEST);
+
+            long now = System.currentTimeMillis();
+            survey.setStatus(ENDED);
+            survey.setEndDate(now);
+            survey.setUpdatedAt(now);
+            formRepository.saveAndFlush(survey);
+
+            formEventPublisher.publishFormUpdated(survey, null, null);
+
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(MESSAGE, SURVEY_ENDED_SUCCESSFULLY);
+            response.setResponse(responseMap);
+
+            log.info("endPeerSurvey success formId={}", formId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("endPeerSurvey error formId={}: {}", formId, e.getMessage(), e);
+            return buildError(response, "Error while ending survey: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

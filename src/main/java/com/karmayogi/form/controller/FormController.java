@@ -144,4 +144,14 @@ public class FormController {
     public ResponseEntity<ApiResponse> publishPeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
         return ResponseEntity.ok(formService.publishPeerSurvey(surveyId, token));
     }
+
+    @PutMapping("/peersurvey/end/{surveyId}")
+    public ResponseEntity<ApiResponse> endPeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return ResponseEntity.ok(formService.endPeerSurvey(surveyId, token));
+    }
+
+    @PutMapping("/peersurvey/archive/{surveyId}")
+    public ResponseEntity<ApiResponse> archivePeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return ResponseEntity.ok(formService.archivePeerSurvey(surveyId, token));
+    }
 }
