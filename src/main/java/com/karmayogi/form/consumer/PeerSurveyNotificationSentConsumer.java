@@ -22,7 +22,7 @@ public class PeerSurveyNotificationSentConsumer {
 
     private final SurveyMetricsService surveyMetricsService;
 
-    @KafkaListener(topics = "${peer.survey.notification.sent.topic}", groupId = "${peer.survey.notification.read.group}")
+    @KafkaListener(topics = "${peer.survey.notification.sent.topic}", groupId = "${peer.survey.notification.read.group}", containerFactory = "formKafkaListenerContainerFactory")
     public void processNotificationSentMessage(ConsumerRecord<String, String> data) {
         log.info("PeerSurveyNotificationSentConsumer received message key={}",
                 data.key());
