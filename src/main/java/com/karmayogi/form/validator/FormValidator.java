@@ -18,13 +18,10 @@ import java.util.List;
 @Component
 public class FormValidator extends BaseFormValidator {
 
-    private final FormConfig formConfig;
-
     public FormValidator(InputValidator inputValidator,
                          com.karmayogi.form.utils.UserUtils utilityService,
                          FormConfig formConfig) {
         super(inputValidator, utilityService, formConfig);
-        this.formConfig = formConfig;
     }
 
     @Override

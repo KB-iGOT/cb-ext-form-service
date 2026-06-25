@@ -15,21 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.filter.Filter;
-import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -639,6 +629,7 @@ public class FormServiceImpl implements FormService{
     }
 
     @Override
+    @Transactional
     public ApiResponse createPeerEvaluationSurveyForMDO(FormRequest form,
                                                         String token) {
         ApiResponse response = new ApiResponse(API_CREATE_PEER_SURVEY);
@@ -674,6 +665,7 @@ public class FormServiceImpl implements FormService{
     }
 
     @Override
+    @Transactional
     public ApiResponse createPeerEvaluationSurveyForSPV(FormRequest form, String token) {
         ApiResponse response = new ApiResponse(API_CREATE_PEER_SURVEY);
         try {
@@ -705,6 +697,7 @@ public class FormServiceImpl implements FormService{
     }
 
     @Override
+    @Transactional
     public ApiResponse updatePeerSurvey(FormRequest request, String token) {
         ApiResponse response = new ApiResponse(API_UPDATE_PEER_SURVEY);
         try {
