@@ -191,4 +191,14 @@ public class FormEventPublisher {
         }
     }
 
+    public void pushToPipeline(Object payload, String topic, String key) {
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            formKafkaTemplate.send(topic, key, json);
+            log.info("pushToPipeline sent topic={} key={}", topic, key);
+        } catch (Exception e) {
+            log.error("pushToPipeline failed topic={} key={}: {}", topic, key, e.getMessage(), e);
+        }
+    }
+
 }

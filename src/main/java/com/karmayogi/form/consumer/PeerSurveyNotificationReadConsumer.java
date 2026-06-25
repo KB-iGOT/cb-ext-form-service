@@ -1,0 +1,50 @@
+package com.karmayogi.form.consumer;
+
+import com.karmayogi.form.utils.SurveyMetricsService;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * @author anil
+ */
+@Component
+@RequiredArgsConstructor
+public class PeerSurveyNotificationReadConsumer {
+
+    private static final Logger log = LoggerFactory.getLogger(PeerSurveyNotificationReadConsumer.class);
+
+    private final SurveyMetricsService surveyMetricsService;
+
+    @KafkaListener(
+            topics = "${peer.survey.notification.read.topic}",
+            groupId = "${peer.survey.notification.read.group}"
+    )
+    public void processNotificationReadMessage(ConsumerRecord<String, String> data) {
+        log.info("PeerSurveyNotificationReadConsumer received message key={}",
+                data.key());
+        try {
+            if (StringUtils.isNotBlank(data.value())) {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        surveyMetricsService.processNotificationRead(data.value());
+                    } catch (Exception e) {
+                        log.error("Error processing notification read: {}", e.getMessage(), e);
+                    }
+                });
+            } else {
+                log.error("Invalid Kafka message in PeerSurveyNotificationReadConsumer");
+            }
+        } catch (Exception e) {
+            log.error("PeerSurveyNotificationReadConsumer error: {}", e.getMessage(), e);
+        }
+    }
+
+
+}

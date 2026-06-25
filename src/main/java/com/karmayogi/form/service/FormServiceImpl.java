@@ -987,4 +987,11 @@ public class FormServiceImpl implements FormService{
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public ApiResponse submitPeerValidationSurvey(FormSubmissionRequest request, String token, boolean isAnonymousUser) {
+        if (REVIEW.equalsIgnoreCase(request.getActionType()))
+            return formSubmissionHelper.handlePeerReview(request, token);
+        return formSubmissionHelper.handleLearnerSubmission(request, token, isAnonymousUser);
+    }
 }

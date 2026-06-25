@@ -58,5 +58,8 @@ public class FormConfig {
     private List<String> organisationFields;
     private int peerSurveyMaxCustomQuestions;
     private String formIndexV2;
-
+    private String peerValidationStatusUpdateTopic;
+    private String peerValidationSubmissionActionTopic;
+    private String peerValidationNotifyTopic;
+    private List<String> attachmentAllowedDomains;
 }

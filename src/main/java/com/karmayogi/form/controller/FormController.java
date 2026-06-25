@@ -154,4 +154,9 @@ public class FormController {
     public ResponseEntity<ApiResponse> archivePeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
         return ResponseEntity.ok(formService.archivePeerSurvey(surveyId, token));
     }
+
+    @PostMapping("/peersurvey/submit")
+    public ResponseEntity<ApiResponse> submitPeerValidationSurvey(@RequestHeader(X_AUTH_TOKEN) String token, @RequestBody FormSubmissionRequest request) {
+        return ResponseEntity.ok(formService.submitPeerValidationSurvey(request, token, false));
+    }
 }

@@ -300,5 +300,16 @@ public class Constants {
     public static final String ARCHIVED = "Archived";
     public static final String SURVEY_ENDED_SUCCESSFULLY    = "Survey ended successfully";
     public static final String API_END_PEER_SURVEY = "api.endPeerSurvey.v3";
+    public static final String API_PEER_SURVEY_SUBMIT = "api.peerValidationSurveySubmit.v3";
+    public static final String API_PEER_REVIEW = "api.peerValidationReview.v3";
+    public static final String PEER_EVALUATION_ASSIGNED = "PEER_EVALUATION_ASSIGNED";
+    public static final String PEER_SURVEY_NOTIFICATION_READ_TABLE = "peer_survey_notification_read";
+    public static final String ERROR_ATTACHMENT_EMPTY            = "Attachment URL cannot be empty";
+    public static final String ERROR_INVALID_ATTACHMENT_URL      = "Invalid attachment URL";
+    public static final String ERROR_PEER_REQUIRED               = "peerIds are required";
+    public static final String ERROR_MAX_PEERS_ALLOWED           = "Maximum peer limit exceeded";
+    public static final int    MAX_PEER_LIMIT                    = 3;
+    public static final String REVIEW = "REVIEW";
+    public static final String ERROR_INVALID_ATTACHMENT_DOMAIN = "Attachment URL domain is not allowed";
     private Constants() {}
 }
