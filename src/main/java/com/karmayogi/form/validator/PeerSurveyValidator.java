@@ -23,7 +23,6 @@ import java.util.Map;
 @Component
 public class PeerSurveyValidator extends BaseFormValidator {
 
-    private final FormConfig formConfig;
     private final ContentUtils contentUtils;
     private final FormRepository formsJpaRepository;
 
@@ -33,7 +32,6 @@ public class PeerSurveyValidator extends BaseFormValidator {
                                ContentUtils contentUtils,
                                FormRepository formsJpaRepository) {
         super(inputValidator, utilityService, formConfig);
-        this.formConfig = formConfig;
         this.contentUtils = contentUtils;
         this.formsJpaRepository = formsJpaRepository;
     }
