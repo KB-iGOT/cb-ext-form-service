@@ -26,4 +26,5 @@ public interface FormService {
         ApiResponse publishPeerSurvey(String formId, String token);
         ApiResponse archivePeerSurvey(String formId, String token);
         ApiResponse endPeerSurvey(String formId, String token);
+        ApiResponse submitPeerValidationSurvey(FormSubmissionRequest request, String token, boolean isAnonymousUser);
 }

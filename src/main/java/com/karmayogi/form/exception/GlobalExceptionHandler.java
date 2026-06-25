@@ -40,6 +40,13 @@ public class GlobalExceptionHandler {
                             Constants.ERR_DUPLICATE_ASSIGNMENT_BATCH));
         }
 
+        if (cause != null && cause.contains("form_submissions_pkey")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(buildErrorResponse("api.peerValidationSurveySubmit.v3",
+                            "DUPLICATE_SUBMISSION",
+                            "You have already submitted this survey"));
+        }
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(buildErrorResponse("api.forms.create.v3",
                         "DATA_INTEGRITY_VIOLATION",

@@ -1,9 +1,13 @@
 package com.karmayogi.form.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.karmayogi.form.config.FormConfig;
+import com.karmayogi.form.config.cassandrautils.CassandraOperation;
 import com.karmayogi.form.entity.FormSubmission;
+import com.karmayogi.form.entity.Forms;
 import com.karmayogi.form.entity.PublicFormSubmission;
 import com.karmayogi.form.model.*;
+import com.karmayogi.form.repository.FormRepository;
 import com.karmayogi.form.repository.FormSubmissionRepository;
 import com.karmayogi.form.repository.FormSubmissionSpecification;
 import com.karmayogi.form.repository.PublicFormSubmissionRepository;
@@ -14,12 +18,16 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.karmayogi.form.utils.Constants.*;
+import static com.karmayogi.form.utils.ResponseUtil.buildError;
 
 /**
  * @author anil
@@ -36,6 +44,12 @@ public class FormSubmissionHelper {
     private final EntityManager entityManager;
     private final FormConfig formConfig;
     private final FormCacheService formCacheService;
+    private final ObjectMapper objectMapper;
+    private final FormRepository formRepository;
+    private final AccessTokenValidator accessTokenValidator;
+    private final FormEventPublisher formEventPublisher;
+    private final SurveyMetricsService surveyMetricsService;
+    private final CassandraOperation cassandraOperation;
 
 
     public String validate(FormSubmissionRequest request,
@@ -53,7 +67,7 @@ public class FormSubmissionHelper {
                 }
                 userInfo.put(Constants.FULL_NAME,
                         StringUtils.defaultString(
-                                (String) userData.get(Constants.FIRST_NAME)));
+                                (String) userData.get(Constants.FIRSTNAME)));
             } catch (Exception e) {
                 log.error("validate user lookup failed userId={}: {}", userId, e.getMessage());
                 return ERR_INVALID_USER_ID;
@@ -764,6 +778,334 @@ public class FormSubmissionHelper {
         log.info("savePublicForm saved submissionId={} formId={} emailId={}",
                 submission.getSubmissionId(), request.getFormId(), request.getEmailId());
         return submission.getSubmissionId();
+    }
+
+    public String validatePeerSurveyAdditionalFields(FormSubmissionRequest request) {
+        if (CollectionUtils.isEmpty(request.getPeerIds()))
+            return Constants.ERROR_PEER_REQUIRED;
+        if (request.getPeerIds().size() > Constants.MAX_PEER_LIMIT)
+            return Constants.ERROR_MAX_PEERS_ALLOWED;
+        if (CollectionUtils.isNotEmpty(request.getAttachments())) {
+            for (String url : request.getAttachments()) {
+                if (StringUtils.isBlank(url))
+                    return Constants.ERROR_ATTACHMENT_EMPTY;
+                if (!url.startsWith("https://") && !url.startsWith("http://"))
+                    return Constants.ERROR_INVALID_ATTACHMENT_URL;
+
+                boolean domainAllowed = formConfig.getAttachmentAllowedDomains()
+                        .stream()
+                        .anyMatch(domain -> {
+                            try {
+                                String host = new java.net.URI(url).getHost();
+                                return host != null && (host.equals(domain) || host.endsWith("." + domain));
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        });
+                if (!domainAllowed)
+                    return Constants.ERROR_INVALID_ATTACHMENT_DOMAIN;
+            }
+        }
+        if (StringUtils.isBlank(request.getCreatedAt()))
+            return "createdAt is required";
+        if (StringUtils.isBlank(request.getContextOrgId()))
+            return "contextOrgId is required";
+        if (StringUtils.isBlank(request.getContextId()))
+            return Constants.ERR_CONTEXT_ID_MISSING;
+        return null;
+    }
+
+    private List<PeerReview> buildPeerReviews(List<String> peerIds) throws IOException {
+
+        List<PeerReview> peerReviews = new ArrayList<>();
+
+        if (peerIds == null) {
+            return peerReviews;
+        }
+
+        for (String peerId : peerIds) {
+            Map<String, Object> propertyMap = new HashMap<>();
+            propertyMap.put("id", peerId);
+            List<Map<String, Object>> defaultQuestions= cassandraOperation.getRecordsByPropertiesWithoutFiltering(Constants.KEYSPACE_SUNBIRD, Constants.USER, propertyMap,
+                    Arrays.asList("profiledetails"), null);
+            String designation = null;
+            if (CollectionUtils.isNotEmpty(defaultQuestions)) {
+                Map<String, Object> record = defaultQuestions.get(0);
+                Object valObj = record.get(Constants.PROFILE_DETAILS);
+
+                if (valObj != null) {
+                    String jsonString = valObj.toString();
+                    Map<String, Object> dataMap =
+                            objectMapper.readValue(jsonString, Map.class);
+                    Object profObj = dataMap.get("professionalDetails");
+                    if (profObj instanceof List) {
+                        List<Map<String, Object>> profList =
+                                (List<Map<String, Object>>) profObj;
+                        if (CollectionUtils.isNotEmpty(profList)) {
+                            Map<String, Object> prof = profList.get(0);
+                            designation = (String) prof.get("designation");
+                        }
+                    }
+                }
+            }
+            PeerReview review = new PeerReview();
+            review.setPeerId(peerId);
+            review.setStatus("NA");
+            review.setReviewedAt(null);
+            review.setDesignation(designation);
+            peerReviews.add(review);
+        }
+
+        return peerReviews;
+    }
+
+    public String savePeerSurveySubmission(FormSubmissionRequest request,
+                                           String userId,
+                                           String status,
+                                           List<Map<String, Object>> normalizedResponses,
+                                           List<com.karmayogi.form.model.PeerReview> peerReviews,
+                                           Map<String, Object> userInfo) {
+        long now = System.currentTimeMillis();
+        com.karmayogi.form.entity.FormSubmission submission = new com.karmayogi.form.entity.FormSubmission();
+        submission.setSubmissionId(java.util.UUID.randomUUID().toString());
+        submission.setFormId(request.getFormId());
+        submission.setUserId(userId);
+        submission.setSubmittedBy(userId);
+        submission.setContextId(request.getContextId());
+        submission.setContextName(request.getContextName());
+        submission.setContextType(Constants.PEER_VALIDATION_SURVEY);
+        submission.setContextOrgId(request.getContextOrgId());
+        submission.setVersion(request.getVersion());
+        submission.setStatus(status);
+        submission.setSubmittedDate(now);
+        submission.setFullName(StringUtils.defaultString((String) userInfo.get(Constants.FULL_NAME)));
+        submission.setResponses(normalizedResponses);
+        submission.setAttachments(request.getAttachments());
+        submission.setSubmissionMeta(request.getSubmissionMeta());
+        submission.setPeerReviews(peerReviews);
+        formSubmissionRepository.save(submission);
+        log.info("savePeerSurveySubmission saved submissionId={}",
+                submission.getSubmissionId());
+        return submission.getSubmissionId();
+    }
+
+    public ApiResponse handleLearnerSubmission(FormSubmissionRequest request,
+                                                String token,
+                                                boolean isAnonymousUser) {
+        ApiResponse response = new ApiResponse(API_PEER_SURVEY_SUBMIT);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response,
+                        "Authentication failed: Invalid or expired access token.",
+                        HttpStatus.UNAUTHORIZED);
+
+            String userId = (String) tokenData.get(USER_ID);
+            log.info("handleLearnerSubmission formId={} userId={}",
+                    request.getFormId(), userId);
+
+            Map<String, Object> userInfo = new HashMap<>();
+            String error = validate(request, userId, userInfo, isAnonymousUser);
+            if (error != null)
+                return buildError(response, error, HttpStatus.BAD_REQUEST);
+
+            String peerError = validatePeerSurveyAdditionalFields(request);
+            if (peerError != null)
+                return buildError(response, peerError, HttpStatus.BAD_REQUEST);
+
+            List<Map<String, Object>> normalizedResponses = normalizeResponses(request.getResponses());
+
+            List<com.karmayogi.form.model.PeerReview> peerReviews = buildPeerReviews(request.getPeerIds());
+
+            String status = StringUtils.isBlank(request.getStatus()) ? SUBMITTED_CAPS : request.getStatus().toUpperCase();
+
+            String submissionId = savePeerSurveySubmission(request, userId, status, normalizedResponses, peerReviews, userInfo);
+
+            surveyMetricsService.processFormSubmission(request.getFormId());
+
+            publishPeerValidationStatusUpdate(request, userId);
+            publishPeerValidationNotifyEvent(request, userId, userInfo);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, submissionId);
+            data.put(FORM_ID, request.getFormId());
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+            log.info("handleLearnerSubmission success formId={} submissionId={}", request.getFormId(), submissionId);
+            return response;
+
+        } catch (DataIntegrityViolationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("handleLearnerSubmission error: {}", e.getMessage(), e);
+            return buildError(response,
+                    "Error while submitting peer validation survey: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public ApiResponse handlePeerReview(FormSubmissionRequest request, String token) {
+        ApiResponse response = new ApiResponse(API_PEER_REVIEW);
+        try {
+            Map<String, Object> tokenData = accessTokenValidator.verifyUserToken(token);
+            if (MapUtils.isEmpty(tokenData))
+                return buildError(response,
+                        "Authentication failed: Invalid or expired access token.",
+                        HttpStatus.UNAUTHORIZED);
+
+            String userId = (String) tokenData.get(USER_ID);
+            if (StringUtils.isBlank(userId))
+                return buildError(response,
+                        "Authentication failed: Invalid userID.",
+                        HttpStatus.UNAUTHORIZED);
+
+            log.info("handlePeerReview submissionId={} reviewer={}",
+                    request.getSubmissionId(), userId);
+
+            com.karmayogi.form.entity.FormSubmission submission = formSubmissionRepository.findById(request.getSubmissionId()).orElse(null);
+            if (submission == null)
+                return buildError(response, "Submission not found", HttpStatus.NOT_FOUND);
+
+            List<com.karmayogi.form.model.PeerReview> peerReviews =
+                    objectMapper.convertValue(submission.getPeerReviews(),
+                            new com.fasterxml.jackson.core.type.TypeReference<
+                                    List<com.karmayogi.form.model.PeerReview>>() {});
+
+            boolean reviewerFound = false;
+            for (com.karmayogi.form.model.PeerReview peer : peerReviews) {
+                if (userId.equals(peer.getPeerId())) {
+                    peer.setStatus(request.getReviewStatus());
+                    peer.setReviewedAt(new java.util.Date());
+                    reviewerFound = true;
+                    break;
+                }
+            }
+
+            if (!reviewerFound)
+                return buildError(response,
+                        "User not authorized to review this submission",
+                        HttpStatus.FORBIDDEN);
+
+            submission.setPeerReviews(peerReviews);
+            formSubmissionRepository.save(submission);
+
+            publishPeerValidationSubmissionAction(userId,
+                    request.getNotificationId(),
+                    request.getReviewStatus(),
+                    request.getSubmissionId(),
+                    request.getCreatedAt());
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(DOCUMENT_ID, request.getSubmissionId());
+            Map<String, Object> responseMap = new HashMap<>();
+            responseMap.put(RESPONSE, data);
+            response.setResponse(responseMap);
+
+            log.info("handlePeerReview success submissionId={}", request.getSubmissionId());
+            return response;
+
+        } catch (Exception e) {
+            log.error("handlePeerReview error: {}", e.getMessage(), e);
+            return buildError(response,
+                    "Error while updating peer review: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void publishPeerValidationStatusUpdate(FormSubmissionRequest request,
+                                                   String userId) {
+        try {
+            com.karmayogi.form.model.PeerValidationStatusUpdate update = new com.karmayogi.form.model.PeerValidationStatusUpdate();
+            update.setCreatedAt(request.getCreatedAt());
+            update.setNotificationId(request.getNotificationId());
+            update.setUserId(userId);
+            update.setSubCategory(Constants.PEER_EVALUATION_ASSIGNED);
+            formEventPublisher.pushToPipeline(update,
+                    formConfig.getPeerValidationStatusUpdateTopic(),
+                    request.getFormId());
+        } catch (Exception e) {
+            log.error("publishPeerValidationStatusUpdate error: {}", e.getMessage(), e);
+        }
+    }
+
+    private void publishPeerValidationSubmissionAction(String userId,
+                                                       String notificationId,
+                                                       String action,
+                                                       String submissionId,
+                                                       String createdAt) {
+        try {
+            Map<String, Object> event = new HashMap<>();
+            event.put("userId", userId);
+            event.put("notificationId", notificationId);
+            event.put("createdAt", createdAt);
+            event.put("subCategory", "PEER_REVIEW_ASSIGNED");
+            event.put("status", action);
+            formEventPublisher.pushToPipeline(event,
+                    formConfig.getPeerValidationSubmissionActionTopic(),
+                    submissionId);
+        } catch (Exception e) {
+            log.error("publishPeerValidationSubmissionAction error: {}", e.getMessage(), e);
+        }
+    }
+
+    private void publishPeerValidationNotifyEvent(FormSubmissionRequest request,
+                                                  String userId,
+                                                  Map<String, Object> userInfo) {
+        try {
+            String surveyEndDate = null;
+            Optional<Forms> formOpt = formRepository.findById(request.getFormId());
+            if (formOpt.isPresent() && formOpt.get().getEndDate() != null) {
+                surveyEndDate = java.time.Instant.ofEpochMilli(formOpt.get().getEndDate())
+                        .atOffset(java.time.ZoneOffset.UTC)
+                        .format(java.time.format.DateTimeFormatter.ISO_INSTANT);
+            }
+
+            List<Map<String, Object>> requestList = new ArrayList<>();
+            for (String peerId : request.getPeerIds()) {
+                Map<String, Object> notify = new HashMap<>();
+                notify.put("user_id", peerId);
+                notify.put("type", "IN_APP");
+                notify.put("category", "PEER_VALIDATION");
+                notify.put("sub_type", "PEER_VALIDATION");
+                notify.put("source", "SYSTEM_CREATED");
+                notify.put("sub_category", "PEER_REVIEW_ASSIGNED");
+
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("formId", request.getFormId());
+                data.put("courseName", request.getContextName());
+                data.put("isSurveySubmitted", false);
+                data.put("completionDate", request.getCreatedAt());
+                data.put("surveyCreatedById", userId);
+                data.put("surveyName", request.getContextName());
+                data.put("surveyEndDate", surveyEndDate);
+                data.put("learnerName", userInfo.get(Constants.FULL_NAME));
+                data.put("contextOrgId", request.getContextOrgId());
+                data.put("learnerId", userId);
+                data.put("contextId", request.getContextId());
+                data.put("thumbnail", request.getThumbnail());
+                data.put("notificationId", request.getNotificationId());
+                data.put("createdAt", request.getCreatedAt());
+
+                Map<String, Object> message = new HashMap<>();
+                message.put("data", List.of(data));
+                message.put("body", userInfo.get(Constants.FULL_NAME)
+                        + " has sent you a peer validation request. Click to view.");
+                notify.put("message", message);
+                requestList.add(notify);
+            }
+
+            Map<String, Object> event = new HashMap<>();
+            event.put("request", requestList);
+            formEventPublisher.pushToPipeline(event,
+                    formConfig.getPeerValidationNotifyTopic(),
+                    request.getFormId());
+
+            log.info("publishPeerValidationNotifyEvent produced formId={}",
+                    request.getFormId());
+        } catch (Exception e) {
+            log.error("publishPeerValidationNotifyEvent error: {}", e.getMessage(), e);
+        }
     }
 
 }
