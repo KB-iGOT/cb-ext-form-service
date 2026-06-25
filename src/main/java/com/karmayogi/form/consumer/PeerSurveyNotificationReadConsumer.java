@@ -24,7 +24,8 @@ public class PeerSurveyNotificationReadConsumer {
 
     @KafkaListener(
             topics = "${peer.survey.notification.read.topic}",
-            groupId = "${peer.survey.notification.read.group}"
+            groupId = "${peer.survey.notification.read.group}",
+            containerFactory = "formKafkaListenerContainerFactory"
     )
     public void processNotificationReadMessage(ConsumerRecord<String, String> data) {
         log.info("PeerSurveyNotificationReadConsumer received message key={}",
