@@ -311,5 +311,10 @@ public class Constants {
     public static final int    MAX_PEER_LIMIT                    = 3;
     public static final String REVIEW = "REVIEW";
     public static final String ERROR_INVALID_ATTACHMENT_DOMAIN = "Attachment URL domain is not allowed";
+    public static final String GET = "GET";
+    public static final String POST = "POST";
+    public static final String OPTIONS = "OPTIONS";
+    public static final String DELETE = "DELETE";
+    public static final String PUT = "PUT";
     private Constants() {}
 }
