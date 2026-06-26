@@ -18,7 +18,7 @@ import static com.karmayogi.form.utils.Constants.X_AUTH_TOKEN;
  * @author anil
  */
 @RestController
-@RequestMapping("/forms")
+@RequestMapping("/forms/v3")
 @RequiredArgsConstructor
 public class FormController {
 
