@@ -24,7 +24,7 @@ public class FormController {
 
     private final FormService formService;
 
-    @GetMapping(value = "/read", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/getFormById", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> getFormById(@RequestParam("formId") String formId) {
         ApiResponse response = formService.getFormById(formId);
         return ResponseEntity.ok(response);
