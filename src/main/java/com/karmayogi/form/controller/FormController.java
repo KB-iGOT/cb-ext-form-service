@@ -30,7 +30,7 @@ public class FormController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/createForm", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> createForm(
             @RequestBody FormRequest request, @RequestHeader(X_AUTHENTICATED_USER_ID) String userId) {
         return ResponseEntity.ok(formService.createForm(request, userId));
