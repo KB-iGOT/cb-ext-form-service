@@ -4,6 +4,7 @@ import com.karmayogi.form.entity.FormQuestions;
 import com.karmayogi.form.entity.Forms;
 import org.apache.commons.collections4.MapUtils;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -102,6 +103,12 @@ public class ResponseUtil {
         response.getParams().setErrMsg(errMsg);
         response.setResponseCode(status);
         return response;
+    }
+
+    public static ResponseEntity<ApiResponse> buildApiResponse(ApiResponse response) {
+        return ResponseEntity
+                .status(response.getResponseCode())
+                .body(response);
     }
 
     private ResponseUtil() {
