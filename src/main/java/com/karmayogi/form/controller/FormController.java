@@ -69,7 +69,7 @@ public class FormController {
         return ResponseEntity.ok(formService.getAllApplications(formId));
     }
 
-    @PostMapping("/submission/search")
+    @PostMapping("/submissions/search")
     public ResponseEntity<ApiResponse> searchUserFeedbackForms(@RequestBody SearchCriteria criteria) {
         return ResponseEntity.ok(formService.searchUserFeedbackForms(criteria));
     }
