@@ -36,7 +36,7 @@ public class FormController {
         return ResponseEntity.ok(formService.createForm(request, userId));
     }
 
-    @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/updateForm", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> updateForm(
             @RequestBody FormRequest request, @RequestHeader(X_AUTHENTICATED_USER_ID) String userId) {
         return ResponseEntity.ok(formService.updateForm(request, userId));
@@ -115,14 +115,8 @@ public class FormController {
         return ResponseEntity.ok(formService.createPeerEvaluationSurveyForSPV(form, token));
     }
 
-    @PutMapping("/mdo/peersurvey/{surveyId}")
-    public ResponseEntity<ApiResponse> updateMdoPeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
-        request.setFormId(surveyId);
-        return ResponseEntity.ok(formService.updatePeerSurvey(request, token));
-    }
-
-    @PutMapping("/spv/peersurvey/{surveyId}")
-    public ResponseEntity<ApiResponse> updateSpvPeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
+    @PutMapping({"/mdo/peersurvey/{surveyId}", "/spv/peersurvey/{surveyId}"})
+    public ResponseEntity<ApiResponse> updatePeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
         request.setFormId(surveyId);
         return ResponseEntity.ok(formService.updatePeerSurvey(request, token));
     }
