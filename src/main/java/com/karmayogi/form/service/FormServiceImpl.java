@@ -351,11 +351,8 @@ public class FormServiceImpl implements FormService{
             data.put(FORM_ID, request.getFormId());
             data.put(SAVED_STATUS, status);
             data.put(RESPONSES_COUNT, request.getResponses() != null ? request.getResponses().size() : 0);
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data);
-            response.setResponse(responseMap);
             log.info("submitForm success formId={} submissionId={} status={}", request.getFormId(), submissionId, status);
-            return response;
+            return buildSuccess(response, data);
 
         } catch (Exception e) {
             log.error("submitForm error formId={}: {}", request.getFormId(),
@@ -379,13 +376,9 @@ public class FormServiceImpl implements FormService{
 
             Map<String, Object> data = formSubmissionHelper.findSavedForm(formId, status, userId, contextId);
 
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data != null ? data : new HashMap<>());
-            response.setResponse(responseMap);
-
             log.info("getUserSavedForm completed formId={} userId={} found={}",
                     formId, userId, data != null);
-            return response;
+            return buildSuccess(response, MapUtils.isNotEmpty(data) ? data : new HashMap<>());
 
         } catch (Exception e) {
             log.error("getUserSavedForm error formId={} userId={}: {}",
@@ -435,14 +428,8 @@ public class FormServiceImpl implements FormService{
                 return buildError(response, error, HttpStatus.BAD_REQUEST);
 
             Map<String, Object> content = formSubmissionHelper.searchUserFeedbackForms(criteria, formConfig.getFormContextHideCreatorFields());
-
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, content);
-            response.setResponse(responseMap);
-
             log.info("searchUserFeedbackForms completed count={}", content.get(COUNT));
-            return response;
-
+            return buildSuccess(response, MapUtils.isNotEmpty(content) ? content : new HashMap<>());
         } catch (Exception e) {
             log.error("searchUserFeedbackForms error: {}", e.getMessage(), e);
             return buildError(response, ERR_INTERNAL + e.getMessage(),
@@ -474,13 +461,10 @@ public class FormServiceImpl implements FormService{
             data.put(DOCUMENT_ID, submission.getSubmissionId());
             data.put(FORM_ID,     request.getFormId());
             data.put(SAVED_STATUS, submission.getStatus());
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data);
-            response.setResponse(responseMap);
 
             log.info("saveFeedback success formId={} submissionId={}",
                     request.getFormId(), submission.getSubmissionId());
-            return response;
+            return buildSuccess(response, data);
 
         } catch (IllegalStateException e) {
             log.warn("saveFeedback invalid state formId={}: {}", request.getFormId(), e.getMessage());
@@ -533,14 +517,11 @@ public class FormServiceImpl implements FormService{
             data.put(DOCUMENT_ID, submissionId);
             data.put(FORM_ID, request.getFormId());
             data.put(SAVED_STATUS, isDraft ? DRAFT : SUBMITTED_CAPS);
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data);
-            response.setResponse(responseMap);
 
             log.info("processAssignmentAnswer success formId={} submissionId={} status={}",
                     request.getFormId(), submissionId,
                     isDraft ? DRAFT : SUBMITTED_CAPS);
-            return response;
+            return buildSuccess(response, data);
 
         } catch (Exception e) {
             log.error("processAssignmentAnswer error formId={}: {}",
@@ -613,12 +594,9 @@ public class FormServiceImpl implements FormService{
             data.put(SAVED_STATUS, status);
             data.put(RESPONSES_COUNT,
                     request.getResponses() != null ? request.getResponses().size() : 0);
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(RESPONSE, data);
-            response.setResponse(responseMap);
 
             log.info("publicSubmitForm success formId={} submissionId={}", request.getFormId(), submissionId);
-            return response;
+            return buildSuccess(response, data);
 
         } catch (Exception e) {
             log.error("publicSubmitForm error: {}", e.getMessage(), e);
@@ -805,8 +783,7 @@ public class FormServiceImpl implements FormService{
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
 
             Map<String, Object> response = peerSurveyHelper.buildPeerSurveyResponse(searchResponse, isSpvSearch);
-            apiResponse.setResponse(Collections.singletonMap(RESPONSE, response));
-            return apiResponse;
+            return buildSuccess(apiResponse, response);
 
         } catch (Exception e) {
             log.error("searchPeerSurveys error: {}", e.getMessage(), e);
@@ -864,12 +841,10 @@ public class FormServiceImpl implements FormService{
 
             formEventPublisher.publishFormUpdated(survey, null, null);
 
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(MESSAGE, SURVEY_PUBLISHED_SUCCESSFULLY);
-            response.setResponse(responseMap);
-
+            Map<String, Object> data = new HashMap<>();
+            data.put(MESSAGE, SURVEY_PUBLISHED_SUCCESSFULLY);
             log.info("publishPeerSurvey success formId={}", formId);
-            return response;
+            return buildSuccess(response, data);
 
         } catch (Exception e) {
             log.error("publishPeerSurvey error formId={}: {}", formId, e.getMessage(), e);
@@ -915,13 +890,10 @@ public class FormServiceImpl implements FormService{
 
             formEventPublisher.publishFormUpdated(survey, null, null);
 
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(MESSAGE, SURVEY_ARCHIVED);
-            response.setResponse(responseMap);
-
+            Map<String, Object> data = new HashMap<>();
+            data.put(MESSAGE, SURVEY_ARCHIVED);
             log.info("archivePeerSurvey success formId={}", formId);
-            return response;
-
+            return buildSuccess(response, data);
         } catch (Exception e) {
             log.error("archivePeerSurvey error formId={}: {}", formId, e.getMessage(), e);
             return buildError(response, "Error while archiving survey: " + e.getMessage(),
@@ -967,12 +939,10 @@ public class FormServiceImpl implements FormService{
 
             formEventPublisher.publishFormUpdated(survey, null, null);
 
-            Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put(MESSAGE, SURVEY_ENDED_SUCCESSFULLY);
-            response.setResponse(responseMap);
-
+            Map<String, Object> data = new HashMap<>();
+            data.put(MESSAGE, SURVEY_ENDED_SUCCESSFULLY);
             log.info("endPeerSurvey success formId={}", formId);
-            return response;
+            return buildSuccess(response, data);
 
         } catch (Exception e) {
             log.error("endPeerSurvey error formId={}: {}", formId, e.getMessage(), e);
