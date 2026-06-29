@@ -64,6 +64,8 @@ public class AccessTokenValidator {
         Map<String, Object> tokenData = new HashMap<>();
         try {
             Map<String, Object> payload = validateToken(token);
+            logger.info("Token payload keys: {}", payload.keySet());
+            logger.info("Token payload: {}", payload);
             if (MapUtils.isNotEmpty(payload) && checkIss((String) payload.get("iss"))) {
                 userId = (String) payload.get(Constants.SUB);
                 if (StringUtils.isNotBlank(userId)) {
