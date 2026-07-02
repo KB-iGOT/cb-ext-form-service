@@ -1,34 +1,157 @@
 package com.karmayogi.form.controller;
 
+import com.karmayogi.form.model.*;
 import com.karmayogi.form.service.FormService;
+import com.karmayogi.form.utils.ApiResponse;
+import com.karmayogi.form.utils.Constants;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.Map;
 
-import static com.karmayogi.form.utils.ResponseUtil.buildResponse;
+import static com.karmayogi.form.utils.Constants.X_AUTHENTICATED_USER_ID;
+import static com.karmayogi.form.utils.Constants.X_AUTH_TOKEN;
+import static com.karmayogi.form.utils.ResponseUtil.*;
 
 /**
  * @author anil
  */
 @RestController
-@RequestMapping("/forms")
+@RequestMapping("/forms/v3")
 @RequiredArgsConstructor
 public class FormController {
 
     private final FormService formService;
 
-    @PostMapping("/search")
-    public ResponseEntity<Map<String, Object>> searchForms(
-            @RequestBody Map<String, Object> body) {
-        Map<String, Object> request = (Map<String, Object>) body.getOrDefault("request", body);
-
-        Map<String, Object> searchResult = formService.searchForms(request);
-
-        return ResponseEntity.ok(buildResponse("api.forms.search", searchResult));
+    @GetMapping(value = "/getFormById", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> getFormById(@RequestParam("formId") String formId) {
+        ApiResponse response = formService.getFormById(formId);
+        return buildApiResponse(response);
     }
 
+    @PostMapping(value = "/createForm", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> createForm(
+            @RequestBody FormRequest request, @RequestHeader(X_AUTHENTICATED_USER_ID) String userId) {
+        return buildApiResponse(formService.createForm(request, userId));
+    }
+
+    @PostMapping(value = "/updateForm", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse> updateForm(
+            @RequestBody FormRequest request, @RequestHeader(X_AUTHENTICATED_USER_ID) String userId) {
+        return buildApiResponse(formService.updateForm(request, userId));
+    }
+
+    @PostMapping("/search")
+    public ResponseEntity<ApiResponse> searchForms(@RequestBody SearchCriteria criteria) {
+        return buildApiResponse(formService.searchForms(criteria));
+    }
+
+    @PostMapping("/saveFormSubmit")
+    public ResponseEntity<ApiResponse> submitForm(
+            @RequestBody FormSubmissionRequest request,
+            @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId) {
+        return buildApiResponse(formService.submitForm(request, userId, false));
+    }
+
+    @GetMapping("/getApplicationsById")
+    public ResponseEntity<ApiResponse> getUserSavedForm(
+            @RequestParam String formId,
+            @RequestParam(required = false) String status,
+            @RequestParam String contextId,
+            @RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId) {
+        return buildApiResponse(formService.getUserSavedForm(formId, status, userId, contextId));
+    }
+
+    @GetMapping(value = "/getAllApplications")
+    public ResponseEntity<ApiResponse> getAllSubmittedApplications(
+            @RequestParam(value = Constants.FORM_ID) String formId) {
+        return buildApiResponse(formService.getAllApplications(formId));
+    }
+
+    @PostMapping("/submissions/search")
+    public ResponseEntity<ApiResponse> searchUserFeedbackForms(@RequestBody SearchCriteria criteria) {
+        return buildApiResponse(formService.searchUserFeedbackForms(criteria));
+    }
+
+    @PostMapping("/feedback")
+    public ResponseEntity<ApiResponse> saveFeedback(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FeedbackRequest request) {
+        return buildApiResponse(formService.saveFeedback(request, userId));
+    }
+
+    @PutMapping("/submitDraft")
+    public ResponseEntity<ApiResponse> saveOrUpdateAnswer(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FormSubmissionRequest request) {
+        return buildApiResponse(formService.processAssignmentAnswer(request, userId, true));
+    }
+
+    @PostMapping("/submit")
+    public ResponseEntity<ApiResponse> submitAnswer(@RequestHeader(value = X_AUTHENTICATED_USER_ID) String userId, @RequestBody FormSubmissionRequest request) {
+        return buildApiResponse(formService.processAssignmentAnswer(request, userId, false));
+    }
+
+    @PostMapping("/bulkGetApplicationsById")
+    public ResponseEntity<ApiResponse> getUserApplicationsBulk(@RequestBody Map<String, Object> requestBody) {
+        return buildApiResponse(formService.getUserSavedFormsBulk(requestBody));
+    }
+
+    @PostMapping("/public/saveFormSubmit")
+    public ResponseEntity<ApiResponse> publicSubmitForm(@RequestBody PublicFormSubmissionRequest request) {
+        return buildApiResponse(formService.publicSubmitForm(request));
+    }
+
+    @PostMapping("/mdo/peersurvey/create")
+    public ResponseEntity<ApiResponse> createPeerEvaluationSurveyForMDO(
+            @RequestBody FormRequest form,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        ApiResponse response = formService.createPeerEvaluationSurveyForMDO(form, token);
+        return buildApiResponse(response);
+    }
+
+    @PostMapping("/spv/peersurvey/create")
+    public ResponseEntity<ApiResponse> createPeerEvaluationSurveyForSPV(
+            @RequestBody FormRequest form,
+            @RequestHeader(X_AUTH_TOKEN) String token) {
+        return buildApiResponse(formService.createPeerEvaluationSurveyForSPV(form, token));
+    }
+
+    @PutMapping({"/mdo/peersurvey/{surveyId}", "/spv/peersurvey/{surveyId}"})
+    public ResponseEntity<ApiResponse> updatePeerSurvey(@PathVariable String surveyId, @RequestBody FormRequest request, @RequestHeader(X_AUTH_TOKEN) String token) {
+        request.setFormId(surveyId);
+        return buildApiResponse(formService.updatePeerSurvey(request, token));
+    }
+
+    @PostMapping("/mdo/peersurvey/search")
+    public ApiResponse searchMdoPeerSurveys(
+            @RequestBody SearchCriteria criteria, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return formService.searchPeerSurvey(criteria, token, false);
+    }
+
+    @PostMapping("/spv/peersurvey/search")
+    public ApiResponse searchSpvPeerSurveys(
+            @RequestBody SearchCriteria criteria, @RequestHeader(X_AUTH_TOKEN) String token) {
+
+        return formService.searchPeerSurvey(criteria, token, true);
+    }
+
+    @PutMapping("/peersurvey/publish/{surveyId}")
+    public ResponseEntity<ApiResponse> publishPeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return buildApiResponse(formService.publishPeerSurvey(surveyId, token));
+    }
+
+    @PutMapping("/peersurvey/end/{surveyId}")
+    public ResponseEntity<ApiResponse> endPeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return buildApiResponse(formService.endPeerSurvey(surveyId, token));
+    }
+
+    @PutMapping("/peersurvey/archive/{surveyId}")
+    public ResponseEntity<ApiResponse> archivePeerSurvey(@PathVariable String surveyId, @RequestHeader(X_AUTH_TOKEN) String token) {
+        return buildApiResponse(formService.archivePeerSurvey(surveyId, token));
+    }
+
+    @PostMapping("/peersurvey/submit")
+    public ResponseEntity<ApiResponse> submitPeerValidationSurvey(@RequestHeader(X_AUTH_TOKEN) String token, @RequestBody FormSubmissionRequest request) {
+        return buildApiResponse(formService.submitPeerValidationSurvey(request, token, false));
+    }
 }
