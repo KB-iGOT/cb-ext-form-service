@@ -64,9 +64,6 @@ public class AccessTokenValidator {
         Map<String, Object> tokenData = new HashMap<>();
         try {
             Map<String, Object> payload = validateToken(token);
-            logger.info("Token payload keys: {}", payload.keySet());
-            logger.info("Token payload: {}", payload);
-            logger.info("checkIss: {}", checkIss((String) payload.get("iss")));
             if (MapUtils.isNotEmpty(payload) && checkIss((String) payload.get("iss"))) {
                 userId = (String) payload.get(Constants.SUB);
                 if (StringUtils.isNotBlank(userId)) {
@@ -85,7 +82,6 @@ public class AccessTokenValidator {
 
     private boolean checkIss(String iss) {
         String realmUrl = cache.getProperty(Constants.SSO_URL) + "realms/" + cache.getProperty(Constants.SSO_REALM);
-        logger.info("Expected realmUrl=[{}], Received iss=[{}]", realmUrl, iss);
         if (StringUtils.isBlank(realmUrl))
             return false;
         return (realmUrl.equalsIgnoreCase(iss));

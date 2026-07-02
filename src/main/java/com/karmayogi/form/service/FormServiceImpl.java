@@ -551,6 +551,7 @@ public class FormServiceImpl implements FormService{
 
             Map<String, Object> responseMap = new HashMap<>();
             responseMap.put(RESPONSE, result);
+            responseMap.put(RESPONSE_CODE, HttpStatus.OK);
             response.setResponse(responseMap);
 
             log.info("getUserSavedFormsBulk completed userId={} total={} found={}",
