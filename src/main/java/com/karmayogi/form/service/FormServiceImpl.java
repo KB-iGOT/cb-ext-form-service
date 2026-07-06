@@ -354,6 +354,8 @@ public class FormServiceImpl implements FormService{
             log.info("submitForm success formId={} submissionId={} status={}", request.getFormId(), submissionId, status);
             return buildSuccess(response, data);
 
+        } catch (DataIntegrityViolationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("submitForm error formId={}: {}", request.getFormId(),
                     e.getMessage(), e);

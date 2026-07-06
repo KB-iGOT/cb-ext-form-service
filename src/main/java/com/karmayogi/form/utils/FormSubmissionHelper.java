@@ -159,19 +159,8 @@ public class FormSubmissionHelper {
                                     List<Map<String, Object>> normalizedResponses,
                                     Map<String, Object> userInfo) {
         long now = System.currentTimeMillis();
-        Optional<FormSubmission> existing =
-                formSubmissionRepository.findLatestByFormIdAndUserIdAndContextId(
-                        request.getFormId(), userId,
-                        StringUtils.defaultString(request.getContextId()));
 
         FormSubmission submission;
-        if (existing.isPresent()) {
-            submission = existing.get();
-            submission.setStatus(status);
-            submission.setUpdatedBy(userId);
-            submission.setUpdatedDate(now);
-            log.info("saveAuthenticated updating submissionId={}", submission.getSubmissionId());
-        } else {
             submission = new FormSubmission();
             submission.setSubmissionId(UUID.randomUUID().toString());
             submission.setFormId(request.getFormId());
@@ -189,7 +178,6 @@ public class FormSubmissionHelper {
             submission.setStatus(status);
             log.info("saveAuthenticated creating new submission formId={} userId={}",
                     request.getFormId(), userId);
-        }
 
         submission.setResponses(normalizedResponses);
         submission.setSubmissionMeta(request.getSubmissionMeta());
