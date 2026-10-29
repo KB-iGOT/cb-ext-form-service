@@ -93,11 +93,14 @@ public class FormValidator extends BaseFormValidator {
             fieldOrders.add(field.getOrder());
 
 
-            if (isChoiceField(field.getFieldType())) {
-                if (CollectionUtils.isEmpty(field.getValues())) {
-                    return "Values are required for fieldType: " + field.getFieldType();
-                }
-                // key/value applies to options only; heading values carry heading/subHeading
+            if (isChoiceField(field.getFieldType())
+                    && CollectionUtils.isEmpty(field.getValues())) {
+                return "Values are required for fieldType: " + field.getFieldType();
+            }
+
+
+            // heading/separator values carry heading/subHeading, not key/value
+            if (!formConfig.getNonQuestionFieldTypes().contains(field.getFieldType())) {
                 String valuesError = validateValues(field.getValues());
                 if (valuesError != null) {
                     return valuesError;

@@ -320,7 +320,7 @@ public class FormServiceImplTest {
         request.setTitle("My Form V2");
         request.setStatus("PUBLISH");
         request.setContextType("form");
-        request.setClientVersion(2.0f);
+        request.setClientVersion(2.0);
 
         FieldMeta f = new FieldMeta();
         f.setName("Q1");
@@ -1506,7 +1506,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForMDO_success() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("MDO Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",
                 "thumbnail", "https://storage.googleapis.com/test.jpg",
@@ -1566,7 +1566,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForMDO_validationFailed_returns400() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("MDO Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>());
 
         String token = "valid-token";
@@ -1612,7 +1612,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForMDO_repositoryException_returns500() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("MDO Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",
                 "thumbnail", "https://storage.googleapis.com/test.jpg",
@@ -1653,7 +1653,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForSPV_success() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("SPV Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",
                 "thumbnail", "https://storage.googleapis.com/test.jpg",
@@ -1739,7 +1739,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForSPV_isSpvCreatedSetToTrue() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("SPV Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",
                 "thumbnail", "https://storage.googleapis.com/test.jpg",
@@ -1777,7 +1777,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForSPV_validationFailed_returns400() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("SPV Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>());
 
         CreatedFor createdFor = new CreatedFor();
@@ -1805,7 +1805,7 @@ public class FormServiceImplTest {
     void testCreatePeerEvaluationSurveyForSPV_repositoryException_returns500() throws Exception {
         FormRequest form = new FormRequest();
         form.setTitle("SPV Peer Survey");
-        form.setClientVersion(1.1f);
+        form.setClientVersion(1.1);
         form.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",
                 "thumbnail", "https://storage.googleapis.com/test.jpg",
@@ -1843,7 +1843,7 @@ public class FormServiceImplTest {
         FormRequest request = new FormRequest();
         request.setFormId(FORM_ID);
         request.setTitle("Updated Peer Survey");
-        request.setClientVersion(1.1f);
+        request.setClientVersion(1.1);
         request.setEndDate("2027-06-30T00:00:00Z");
         request.setAdditionalProperties(new HashMap<>(Map.of(
                 "identifier", "do_123",

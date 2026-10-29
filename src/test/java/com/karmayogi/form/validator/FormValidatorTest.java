@@ -42,6 +42,8 @@ public class FormValidatorTest {
                 .thenReturn(Set.of("heading", "radio", "text"));
         lenient().when(formConfig.getAllowedFieldPropertyKeys())
                 .thenReturn(Set.of("width"));
+        lenient().when(formConfig.getNonQuestionFieldTypes())
+                .thenReturn(Set.of("heading", "separator"));
         lenient().when(inputValidator.validateFieldName(anyString())).thenReturn(null);
         lenient().when(inputValidator.validateText(any(), anyString()))
                 .thenAnswer(inv -> StringUtils.isBlank(inv.getArgument(0))
@@ -62,6 +64,14 @@ public class FormValidatorTest {
 
         assertEquals(Constants.ERR_VALUE_KEY_INVALID + null,
                 formValidator.validateFields(List.of(radio)));
+    }
+
+    @Test
+    void nonChoiceFieldValueWithoutKeyIsStillRejected() {
+        FieldMeta text = field("text", 1, value(null, "Modi", null, null));
+
+        assertEquals(Constants.ERR_VALUE_KEY_INVALID + null,
+                formValidator.validateFields(List.of(text)));
     }
 
     @Test
