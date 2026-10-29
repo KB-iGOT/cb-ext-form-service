@@ -352,7 +352,9 @@ public class FormServiceImpl implements FormService{
             data.put(SAVED_STATUS, status);
             data.put(RESPONSES_COUNT, request.getResponses() != null ? request.getResponses().size() : 0);
             log.info("submitForm success formId={} submissionId={} status={}", request.getFormId(), submissionId, status);
-            return buildSuccess(response, data);
+            buildSuccess(response, data);
+            response.getParams().setStatus(STATUS_SUCCESS_LOWERCASE);
+            return response;
 
         } catch (DataIntegrityViolationException e) {
             throw e;
@@ -555,10 +557,11 @@ public class FormServiceImpl implements FormService{
             responseMap.put(RESPONSE, result);
             responseMap.put(RESPONSE_CODE, HttpStatus.OK);
             response.setResponse(responseMap);
+            response.getParams().setStatus(STATUS_SUCCESS_LOWERCASE);
 
             log.info("getUserSavedFormsBulk completed userId={} total={} found={}",
                     userId, formContextList.size(),
-                    result.stream().filter(r -> Boolean.TRUE.equals(r.get(SUBMITTED))).count());
+                    result.stream().filter(r -> Boolean.TRUE.equals(r.get(SUBMITTED_LOWERCASE))).count());
             return response;
 
         } catch (Exception e) {

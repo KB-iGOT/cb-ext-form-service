@@ -881,6 +881,7 @@ public class FormServiceImplTest {
         assertNotNull(responseMap.get(Constants.RESPONSE));
         List<?> responseList = (List<?>) responseMap.get(Constants.RESPONSE);
         assertEquals(2, responseList.size());
+        assertEquals(Constants.STATUS_SUCCESS_LOWERCASE, response.getParams().getStatus());
     }
 
     @Test
@@ -1175,7 +1176,7 @@ public class FormServiceImplTest {
         ApiResponse response = formService.submitForm(request, userId, false);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        assertEquals(Constants.STATUS_SUCCESS, response.getParams().getStatus());
+        assertEquals(Constants.STATUS_SUCCESS_LOWERCASE, response.getParams().getStatus());
         Map<String, Object> data = (Map<String, Object>) response.get(Constants.RESPONSE);
         assertEquals("sub-123", data.get(Constants.DOCUMENT_ID));
         assertEquals("form-123", data.get(Constants.FORM_ID));
