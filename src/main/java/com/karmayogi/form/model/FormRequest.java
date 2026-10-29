@@ -24,7 +24,7 @@ public class FormRequest {
     private String status;
     private List<Meta> meta;
     private List<FieldMeta> mandatoryFields;
-    private Float clientVersion;
+    private Double clientVersion;
     private List<FieldMeta> fields;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
     private String contextType;
