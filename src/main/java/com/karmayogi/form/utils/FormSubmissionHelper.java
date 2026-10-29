@@ -159,33 +159,44 @@ public class FormSubmissionHelper {
                                     List<Map<String, Object>> normalizedResponses,
                                     Map<String, Object> userInfo) {
         long now = System.currentTimeMillis();
+        String contextId = StringUtils.defaultString(request.getContextId());
 
-        FormSubmission submission;
-            submission = new FormSubmission();
+        // one row per (userid, formid, contextid): a resubmission overwrites it, as the old
+        // form-service did (e.g. re-applying to another batch of the same blended program)
+        Optional<FormSubmission> existing = formSubmissionRepository
+                .findByFormIdAndUserIdAndContextId(request.getFormId(), userId, contextId);
+        FormSubmission submission = existing.orElseGet(FormSubmission::new);
+        if (existing.isPresent()) {
+            submission.setUpdatedBy(userId);
+            submission.setUpdatedDate(now);
+            log.info("saveAuthenticated updating submission submissionId={} formId={} userId={}",
+                    submission.getSubmissionId(), request.getFormId(), userId);
+        } else {
             submission.setSubmissionId(UUID.randomUUID().toString());
-            submission.setFormId(request.getFormId());
-            submission.setUserId(userId);
-            submission.setContextId(request.getContextId());
-            submission.setContextName(request.getContextName());
-            submission.setContextType(contextType);
-            submission.setContextOrgId(request.getContextOrgId());
-            submission.setSubmitUrl(request.getSubmitUrl());
-            submission.setVersion(request.getVersion());
-            submission.setFullName(StringUtils.defaultString(
-                    (String) userInfo.get(Constants.FULL_NAME)));
-            submission.setSubmittedBy(userId);
-            submission.setSubmittedDate(now);
-            submission.setStatus(status);
             log.info("saveAuthenticated creating new submission formId={} userId={}",
                     request.getFormId(), userId);
+        }
 
+        submission.setFormId(request.getFormId());
+        submission.setUserId(userId);
+        submission.setContextId(contextId);
+        submission.setContextName(request.getContextName());
+        submission.setContextType(contextType);
+        submission.setContextOrgId(request.getContextOrgId());
+        submission.setSubmitUrl(request.getSubmitUrl());
+        submission.setVersion(request.getVersion());
+        submission.setFullName(StringUtils.defaultString(
+                (String) userInfo.get(Constants.FULL_NAME)));
+        submission.setSubmittedBy(userId);
+        submission.setSubmittedDate(now);
+        submission.setStatus(status);
         submission.setResponses(normalizedResponses);
         submission.setSubmissionMeta(request.getSubmissionMeta());
         submission.setAttachments(request.getAttachments());
 
         formSubmissionRepository.save(submission);
-        if (StringUtils.isNotBlank(request.getContextId())) {
-            formCacheService.invalidateBulkStatus(userId, request.getFormId(), request.getContextId());
+        if (StringUtils.isNotBlank(contextId)) {
+            formCacheService.invalidateBulkStatus(userId, request.getFormId(), contextId);
         }
         return submission.getSubmissionId();
     }
@@ -698,7 +709,7 @@ public class FormSubmissionHelper {
                     Map<String, Object> entry = new LinkedHashMap<>();
                     entry.put(Constants.FORM_ID,    formId);
                     entry.put(Constants.CONTEXT_ID, contextId);
-                    entry.put(Constants.SUBMITTED,
+                    entry.put(Constants.SUBMITTED_LOWERCASE,
                             cacheResults.getOrDefault(
                                     formId + "_" + contextId, false));
                     return entry;

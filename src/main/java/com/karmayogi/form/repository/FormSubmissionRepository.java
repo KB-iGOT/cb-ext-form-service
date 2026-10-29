@@ -25,6 +25,9 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
             """, nativeQuery = true)
     List<Object[]> countByFormIds(@Param("formIds") Set<String> formIds);
 
+    // matches the primary key (userid, formid, contextid), so at most one row
+    Optional<FormSubmission> findByFormIdAndUserIdAndContextId(String formId, String userId, String contextId);
+
     @Query(value = """
             SELECT * FROM form_submissions
             WHERE formid = :formId

@@ -59,6 +59,9 @@ public class Constants {
 
     public static final String STATUS_SUCCESS = "SUCCESS";
     public static final String STATUS_FAILED  = "FAILED";
+    // lowercase, as the old form-service sent them (saveFormSubmit, bulkGetApplicationsById)
+    public static final String STATUS_SUCCESS_LOWERCASE = "success";
+    public static final String SUBMITTED_LOWERCASE      = "submitted";
     public static final String RESPONSE       = "response";
     public static final String API_GET_FORM_BY_ID = "api.getFormById.v3";
     public static final String CREATED_DATE = "createdDate";
