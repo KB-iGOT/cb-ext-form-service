@@ -62,6 +62,19 @@ public class Constants {
     // lowercase, as the old form-service sent them (saveFormSubmit, bulkGetApplicationsById)
     public static final String STATUS_SUCCESS_LOWERCASE = "success";
     public static final String SUBMITTED_LOWERCASE      = "submitted";
+
+    // v1 saveFormSubmit, request and response as the old form-service had them
+    public static final String DATA_OBJECT                  = "dataObject";
+    public static final String COURSE_ID_AND_NAME           = "Course ID and Name";
+    public static final String X_USER_INFO                  = "x-user-info";
+    public static final String LEGACY_SAVE_FORM_SUBMIT_PATH = "/forms/v1/saveFormSubmit";
+    public static final String LEGACY_STATUS_INFO           = "statusInfo";
+    public static final String LEGACY_STATUS_CODE           = "statusCode";
+    public static final String LEGACY_STATUS_MESSAGE        = "statusMessage";
+    public static final String LEGACY_ERROR_MESSAGE         = "errorMessage";
+    public static final int    LEGACY_SUCCESS_CODE          = 200;
+    public static final int    LEGACY_FAILURE_CODE          = 320;
+    public static final String LEGACY_PROCESS_FAILED        = "Process failed, Please try again.";
     public static final String RESPONSE       = "response";
     public static final String API_GET_FORM_BY_ID = "api.getFormById.v3";
     public static final String CREATED_DATE = "createdDate";
