@@ -6,7 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,8 +30,13 @@ public class FormConfig {
     private Set<String> allowedFormPropertyKeys;
     private List<String> peerSurveyContentReadFields;
     private String contentBaseUrl;
-    private Set<String> npsFormIds = new HashSet<>();
-    private String legacyFormServiceUrl;
+    private String npsFormId;
+    private String npsFormSecondaryId;
+    private String npsFormUpgradedId;
+    private String npsTopic;
+    private String npsUpgradedTopic;
+    private String npsDataIndex;
+    private String npsActivityLogIndex;
     private Set<String> peerSurveyAllowedAdditionalProperties;
     private Set<String> peerSurveyAllowedContentTypes;
     private int peerSurveyMinTriggerAfter;

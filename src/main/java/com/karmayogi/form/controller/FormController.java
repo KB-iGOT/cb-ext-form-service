@@ -60,9 +60,8 @@ public class FormController {
     @PostMapping("/v1/saveFormSubmit")
     public ResponseEntity<Object> legacySubmitForm(
             @RequestBody Map<String, Object> body,
-            @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId,
-            @RequestHeader(value = Constants.X_USER_INFO, required = false) String userInfo) {
-        return legacyFormSubmitService.submit(body, userId, userInfo);
+            @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId) {
+        return legacyFormSubmitService.submit(body, userId);
     }
 
     @GetMapping("/getApplicationsById")

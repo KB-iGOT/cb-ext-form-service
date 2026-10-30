@@ -18,11 +18,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
@@ -55,7 +52,7 @@ public class LegacyFormSubmitServiceTest {
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @Mock
-    private RestTemplate restTemplate;
+    private NpsSubmissionService npsSubmissionService;
 
     @InjectMocks
     private LegacyFormSubmitService legacyFormSubmitService;
@@ -63,8 +60,7 @@ public class LegacyFormSubmitServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(formConfig.getNonQuestionFieldTypes()).thenReturn(Set.of("heading", "separator"));
-        lenient().when(formConfig.getNpsFormIds()).thenReturn(Set.of(NPS_FORM_ID));
-        lenient().when(formConfig.getLegacyFormServiceUrl()).thenReturn("http://form-service:8099");
+        lenient().when(npsSubmissionService.isNpsForm(NPS_FORM_ID)).thenReturn(true);
     }
 
     @Test
@@ -79,7 +75,7 @@ public class LegacyFormSubmitServiceTest {
                 question("q3", "Please add your feedback ", "textarea")));
         when(formService.submitForm(any(), eq("user-1"), eq(false))).thenReturn(apiResponse(Constants.STATUS_SUCCESS_LOWERCASE, null));
 
-        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), "user-1", null);
+        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), "user-1");
 
         ArgumentCaptor<FormSubmissionRequest> captor = ArgumentCaptor.forClass(FormSubmissionRequest.class);
         verify(formService).submitForm(captor.capture(), eq("user-1"), eq(false));
@@ -102,7 +98,7 @@ public class LegacyFormSubmitServiceTest {
         assertEquals(Map.of(
                 "statusInfo", Map.of("statusCode", 200, "statusMessage", "success", "errorMessage", ""),
                 "responseData", true), response.getBody());
-        verifyNoInteractions(restTemplate);
+        verify(npsSubmissionService, never()).submit(any(), any());
     }
 
     @Test
@@ -115,7 +111,7 @@ public class LegacyFormSubmitServiceTest {
         when(formRepository.findById(FORM_ID)).thenReturn(Optional.of(form));
         when(formService.submitForm(any(), any(), eq(false))).thenReturn(apiResponse(Constants.STATUS_SUCCESS_LOWERCASE, null));
 
-        legacyFormSubmitService.submit(legacyBody(), "user-1", null);
+        legacyFormSubmitService.submit(legacyBody(), "user-1");
 
         ArgumentCaptor<FormSubmissionRequest> captor = ArgumentCaptor.forClass(FormSubmissionRequest.class);
         verify(formService).submitForm(captor.capture(), any(), eq(false));
@@ -125,28 +121,21 @@ public class LegacyFormSubmitServiceTest {
     }
 
     @Test
-    void npsFormIsForwardedToOldFormService() {
+    void npsFormIsHandledByNpsService() {
         Map<String, Object> body = new HashMap<>(Map.of("formId", Long.parseLong(NPS_FORM_ID),
                 "dataObject", Map.of("Please rate your experience with the platform", 7)));
-        when(restTemplate.exchange(eq("http://form-service:8099/forms/v1/saveFormSubmit"), eq(HttpMethod.POST),
-                any(HttpEntity.class), eq(String.class)))
-                .thenReturn(ResponseEntity.ok("{\"responseData\":true}"));
+        ResponseEntity<Object> npsResponse = ResponseEntity.ok(Map.of("responseData", true));
+        when(npsSubmissionService.submit(body, "user-1")).thenReturn(npsResponse);
 
-        ResponseEntity<Object> response = legacyFormSubmitService.submit(body, "user-1", "{\"emailId\":\"x\"}");
+        ResponseEntity<Object> response = legacyFormSubmitService.submit(body, "user-1");
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("{\"responseData\":true}", response.getBody());
-        ArgumentCaptor<HttpEntity> entity = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), entity.capture(), eq(String.class));
-        assertEquals("user-1", entity.getValue().getHeaders().getFirst(Constants.X_AUTHENTICATED_USER_ID));
-        assertEquals("{\"emailId\":\"x\"}", entity.getValue().getHeaders().getFirst(Constants.X_USER_INFO));
-        assertSame(body, entity.getValue().getBody());
+        assertSame(npsResponse, response);
         verifyNoInteractions(formService, formRepository);
     }
 
     @Test
     void missingFormIdReturnsLegacyFailure() {
-        ResponseEntity<Object> response = legacyFormSubmitService.submit(new HashMap<>(), "user-1", null);
+        ResponseEntity<Object> response = legacyFormSubmitService.submit(new HashMap<>(), "user-1");
 
         assertEquals(failure("Invalid form id"), response.getBody());
     }
@@ -154,7 +143,7 @@ public class LegacyFormSubmitServiceTest {
     @Test
     void emptyDataObjectReturnsLegacyFailure() {
         ResponseEntity<Object> response = legacyFormSubmitService.submit(
-                new HashMap<>(Map.of("formId", Long.parseLong(FORM_ID))), "user-1", null);
+                new HashMap<>(Map.of("formId", Long.parseLong(FORM_ID))), "user-1");
 
         assertEquals(failure("Form data object is empty"), response.getBody());
         verifyNoInteractions(formService);
@@ -164,7 +153,7 @@ public class LegacyFormSubmitServiceTest {
     void unknownFormReturnsLegacyFailure() {
         when(formRepository.findById(FORM_ID)).thenReturn(Optional.empty());
 
-        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), "user-1", null);
+        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), "user-1");
 
         assertEquals(failure("Form is not available"), response.getBody());
         verifyNoInteractions(formService);
@@ -180,7 +169,7 @@ public class LegacyFormSubmitServiceTest {
         when(formService.submitForm(any(), any(), eq(false)))
                 .thenReturn(apiResponse(Constants.STATUS_FAILED, Constants.ERR_INVALID_USER_ID));
 
-        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), null, null);
+        ResponseEntity<Object> response = legacyFormSubmitService.submit(legacyBody(), null);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(failure(Constants.ERR_INVALID_USER_ID), response.getBody());

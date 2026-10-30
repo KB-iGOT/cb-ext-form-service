@@ -66,8 +66,6 @@ public class Constants {
     // v1 saveFormSubmit, request and response as the old form-service had them
     public static final String DATA_OBJECT                  = "dataObject";
     public static final String COURSE_ID_AND_NAME           = "Course ID and Name";
-    public static final String X_USER_INFO                  = "x-user-info";
-    public static final String LEGACY_SAVE_FORM_SUBMIT_PATH = "/forms/v1/saveFormSubmit";
     public static final String LEGACY_STATUS_INFO           = "statusInfo";
     public static final String LEGACY_STATUS_CODE           = "statusCode";
     public static final String LEGACY_STATUS_MESSAGE        = "statusMessage";
@@ -75,6 +73,33 @@ public class Constants {
     public static final int    LEGACY_SUCCESS_CODE          = 200;
     public static final int    LEGACY_FAILURE_CODE          = 320;
     public static final String LEGACY_PROCESS_FAILED        = "Process failed, Please try again.";
+
+    // NPS (platform rating) submissions, as the old form-service stored and published them
+    public static final String TIMESTAMP                    = "timestamp";
+    public static final String APPLICATION_ID               = "applicationId";
+    public static final String TYPE                         = "type";
+    public static final String DOC_TYPE                     = "_doc";
+    public static final String NPS_STATUS_NEW               = "NEW";
+    public static final String NPS_DATA_OBJECT_MISSING      = "Data object is missing";
+    public static final String NPS_ACTIVITY_TYPE            = "Application";
+    public static final String NPS_UPDATED_OBJECT           = "updatedObject";
+    public static final String NPS_CHANGES                  = "changes";
+    public static final String NPS_CHANGED_TO               = "ChangedTo";
+    public static final String NPS_FIELD                    = "field";
+    public static final String NPS_ACTION                   = "action";
+    public static final String NPS_ACTION_CREATED           = "Created";
+    public static final String NPS_USER_ID                  = "userID";
+    public static final String NPS_RATING                   = "rating";
+    public static final String NPS_SUBMITTED                = "submitted";
+    public static final String NPS_USER_TYPE                = "userType";
+    public static final String NPS_ACTIVITY_DESC            = "activityDesc";
+    public static final String NPS_ACTIVITY_ID              = "activityID";
+    public static final String NPS_ORIGIN_PLATFORM          = "originPlatform";
+    public static final String NPS_SUBMISSION_ACTIVITY      = "nps_submission";
+    public static final String NPS_ORIGIN_FORMS_SERVICE     = "formsService";
+    public static final String NPS_DETRACTORS               = "Detracters";
+    public static final String NPS_PASSIVES                 = "Passives";
+    public static final String NPS_PROMOTERS                = "Promoters";
     public static final String RESPONSE       = "response";
     public static final String API_GET_FORM_BY_ID = "api.getFormById.v3";
     public static final String CREATED_DATE = "createdDate";
