@@ -30,6 +30,13 @@ public class FormConfig {
     private Set<String> allowedFormPropertyKeys;
     private List<String> peerSurveyContentReadFields;
     private String contentBaseUrl;
+    private String npsFormId;
+    private String npsFormSecondaryId;
+    private String npsFormUpgradedId;
+    private String npsTopic;
+    private String npsUpgradedTopic;
+    private String npsDataIndex;
+    private String npsActivityLogIndex;
     private Set<String> peerSurveyAllowedAdditionalProperties;
     private Set<String> peerSurveyAllowedContentTypes;
     private int peerSurveyMinTriggerAfter;

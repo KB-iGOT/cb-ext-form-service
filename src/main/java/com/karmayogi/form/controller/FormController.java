@@ -2,6 +2,7 @@ package com.karmayogi.form.controller;
 
 import com.karmayogi.form.model.*;
 import com.karmayogi.form.service.FormService;
+import com.karmayogi.form.service.LegacyFormSubmitService;
 import com.karmayogi.form.utils.ApiResponse;
 import com.karmayogi.form.utils.Constants;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import static com.karmayogi.form.utils.ResponseUtil.*;
 public class FormController {
 
     private final FormService formService;
+    private final LegacyFormSubmitService legacyFormSubmitService;
 
     @GetMapping(value = "/getFormById", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse> getFormById(@RequestParam("formId") String formId) {
@@ -53,6 +55,13 @@ public class FormController {
             @RequestBody FormSubmissionRequest request,
             @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId) {
         return buildApiResponse(formService.submitForm(request, userId, false));
+    }
+
+    @PostMapping("/v1/saveFormSubmit")
+    public ResponseEntity<Object> legacySubmitForm(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = X_AUTHENTICATED_USER_ID, required = false) String userId) {
+        return legacyFormSubmitService.submit(body, userId);
     }
 
     @GetMapping("/getApplicationsById")
