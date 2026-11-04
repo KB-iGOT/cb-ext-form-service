@@ -26,6 +26,9 @@ public class FormCacheService {
     @Value("${form.cache.ttl.hours:1}")
     private long ttl;
 
+    @Value("${form.cache.bulk-status.ttl.seconds:1}")
+    private long bulkStatusTtlSeconds;
+
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -88,8 +91,8 @@ public class FormCacheService {
             redisTemplate.opsForValue().set(
                     bulkStatusKey(userId, formId, contextId),
                     String.valueOf(submitted),
-                    ttl,
-                    TimeUnit.HOURS);
+                    bulkStatusTtlSeconds,
+                    TimeUnit.SECONDS);
         } catch (Exception e) {
             log.warn("Cache PUT bulk-status error userId={} formId={}: {}",
                     userId, formId, e.getMessage());
