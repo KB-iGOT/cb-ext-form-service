@@ -30,8 +30,8 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
 
     @Query(value = """
             SELECT * FROM form_submissions
-            WHERE formid = :formId
-            AND submittedby = :userId
+            WHERE userid = :userId
+            AND formid = :formId
             AND contextid = :contextId
             ORDER BY submitteddate DESC
             LIMIT 1
@@ -43,8 +43,8 @@ public interface FormSubmissionRepository extends JpaRepository<FormSubmission, 
 
     @Query(value = """
             SELECT * FROM form_submissions
-            WHERE formid = :formId
-            AND submittedby = :userId
+            WHERE userid = :userId
+            AND formid = :formId
             AND contextid = :contextId
             AND status = :status
             ORDER BY submitteddate DESC
