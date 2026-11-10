@@ -69,4 +69,5 @@ public class FormConfig {
     private String peerValidationSubmissionActionTopic;
     private String peerValidationNotifyTopic;
     private List<String> attachmentAllowedDomains;
+    private String karmaPointsUnifiedEventTopic;
 }

@@ -357,5 +357,16 @@ public class Constants {
     public static final String OPTIONS = "OPTIONS";
     public static final String DELETE = "DELETE";
     public static final String PUT = "PUT";
+
+    // karma points event (survey submission completion / sankalp survey)
+    public static final String SANKALP_SURVEY = "SANKALP_SURVEY";
+    public static final String KARMA_EVENT_TYPE_SURVEY_SUBMISSION = "SURVEY_SUBMISSION";
+    public static final String KARMA_EVENT_TYPE_SANKALP = "SANKALP_EVENT";
+    public static final String EVENT_TYPE = "eventType";
+    public static final String DATA = "data";
+    public static final String EDATA = "edata";
+    public static final String SURVEY_ID = "surveyId";
+    public static final String DATE_TIME = "date_time";
+
     private Constants() {}
 }

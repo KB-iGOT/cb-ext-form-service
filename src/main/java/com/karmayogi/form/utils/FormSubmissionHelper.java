@@ -152,7 +152,7 @@ public class FormSubmissionHelper {
                 "Unsupported answer type: " + answer.getClass().getName());
     }
 
-    public String saveAuthenticated(FormSubmissionRequest request,
+    public SubmissionSaveResult saveAuthenticated(FormSubmissionRequest request,
                                     String userId,
                                     String status,
                                     String contextType,
@@ -165,6 +165,7 @@ public class FormSubmissionHelper {
         // form-service did (e.g. re-applying to another batch of the same blended program)
         Optional<FormSubmission> existing = formSubmissionRepository
                 .findByFormIdAndUserIdAndContextId(request.getFormId(), userId, contextId);
+        String previousStatus = existing.map(FormSubmission::getStatus).orElse(null);
         FormSubmission submission = existing.orElseGet(FormSubmission::new);
         if (existing.isPresent()) {
             submission.setUpdatedBy(userId);
@@ -198,7 +199,7 @@ public class FormSubmissionHelper {
         if (StringUtils.isNotBlank(contextId)) {
             formCacheService.invalidateBulkStatus(userId, request.getFormId(), contextId);
         }
-        return submission.getSubmissionId();
+        return new SubmissionSaveResult(submission.getSubmissionId(), previousStatus);
     }
 
     public String saveAnonymous(FormSubmissionRequest request,

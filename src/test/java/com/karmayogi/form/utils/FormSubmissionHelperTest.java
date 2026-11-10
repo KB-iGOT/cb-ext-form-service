@@ -2,6 +2,7 @@ package com.karmayogi.form.utils;
 
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.model.FormSubmissionRequest;
+import com.karmayogi.form.model.SubmissionSaveResult;
 import com.karmayogi.form.repository.FormSubmissionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,11 +57,12 @@ public class FormSubmissionHelperTest {
         when(formSubmissionRepository.findByFormIdAndUserIdAndContextId("form-1", "user-1", "prog-1"))
                 .thenReturn(Optional.empty());
 
-        String submissionId = formSubmissionHelper.saveAuthenticated(request, "user-1", "SUBMITTED",
+        SubmissionSaveResult result = formSubmissionHelper.saveAuthenticated(request, "user-1", "SUBMITTED",
                 "form", List.of(Map.of("questionId", "q1", "answer", "a1")), Map.of("fullName", "Learner"));
 
         FormSubmission saved = savedSubmission();
-        assertEquals(submissionId, saved.getSubmissionId());
+        assertEquals(result.submissionId(), saved.getSubmissionId());
+        assertNull(result.previousStatus());
         assertEquals("prog-1", saved.getContextId());
         assertEquals("SUBMITTED", saved.getStatus());
         assertNull(saved.getUpdatedBy());
@@ -80,11 +82,12 @@ public class FormSubmissionHelperTest {
         when(formSubmissionRepository.findByFormIdAndUserIdAndContextId("form-1", "user-1", "prog-1"))
                 .thenReturn(Optional.of(existing));
 
-        String submissionId = formSubmissionHelper.saveAuthenticated(request("prog-1"), "user-1", "SUBMITTED",
+        SubmissionSaveResult result = formSubmissionHelper.saveAuthenticated(request("prog-1"), "user-1", "SUBMITTED",
                 "form", List.of(Map.of("questionId", "q1", "answer", "new")), Map.of());
 
         FormSubmission saved = savedSubmission();
-        assertEquals("sub-old", submissionId);
+        assertEquals("sub-old", result.submissionId());
+        assertEquals("SUBMITTED", result.previousStatus());
         assertEquals("sub-old", saved.getSubmissionId());
         assertEquals(List.of(Map.of("questionId", "q1", "answer", "new")), saved.getResponses());
         assertEquals("user-1", saved.getUpdatedBy());
