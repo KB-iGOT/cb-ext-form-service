@@ -376,8 +376,8 @@ public class FormServiceImpl implements FormService{
     }
 
     /**
-     * Publishes a karma points event for a saved SUBMITTED form submission: COMPLETION_SURVEY
-     * contextType produces a SURVEY_SUBMISSION event, SANKALP_SURVEY produces a SANKALP_EVENT
+     * Publishes a karma points event for a saved SUBMITTED form submission: completionSurvey
+     * contextType produces a SURVEY_SUBMISSION event, sankalp produces a SANKALP_EVENT
      * (with an added date_time field). Skipped for anonymous users, non-SUBMITTED status, other
      * contextTypes, a blank contextId (course id), or a resubmission that was already SUBMITTED
      * before (so karma isn't re-awarded). Never throws.

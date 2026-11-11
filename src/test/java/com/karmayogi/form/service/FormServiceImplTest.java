@@ -1222,7 +1222,7 @@ public class FormServiceImplTest {
         FormSubmissionRequest request = new FormSubmissionRequest();
         request.setFormId("form-123");
         request.setContextId("course-123");
-        request.setContextType("SANKALP_SURVEY");
+        request.setContextType("sankalp");
         request.setStatus("SUBMITTED");
         request.setResponses(Collections.emptyList());
 

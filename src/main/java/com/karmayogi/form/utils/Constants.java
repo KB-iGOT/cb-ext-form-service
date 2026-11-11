@@ -359,7 +359,7 @@ public class Constants {
     public static final String PUT = "PUT";
 
     // karma points event (survey submission completion / sankalp survey)
-    public static final String SANKALP_SURVEY = "SANKALP_SURVEY";
+    public static final String SANKALP_SURVEY = "sankalp";
     public static final String KARMA_EVENT_TYPE_SURVEY_SUBMISSION = "SURVEY_SUBMISSION";
     public static final String KARMA_EVENT_TYPE_SANKALP = "SANKALP_EVENT";
     public static final String EVENT_TYPE = "eventType";
