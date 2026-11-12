@@ -71,4 +71,5 @@ public class FormConfig {
     private List<String> attachmentAllowedDomains;
     private String karmaPointsUnifiedEventTopic;
     private Set<String> karmaPointsAllowedContextTypes;
+    private String sankalpPledgeEventTopic;
 }

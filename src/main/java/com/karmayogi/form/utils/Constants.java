@@ -370,5 +370,12 @@ public class Constants {
     public static final String EVENT_NAME = "eventName";
     public static final String ERR_CONTEXT_NAME_MISSING = "contextName is required";
 
+    // sankalp pledge event
+    public static final String PLEDGE_EVENT_USER_ID = "user_id";
+    public static final String PLEDGE_EVENT_CONTEXT_ID = "context_id";
+    public static final String PLEDGE_EVENT_CONTEXT_TYPE = "context_type";
+    public static final String PLEDGE_EVENT_SUBMITTED_DATE = "submitted_date";
+    public static final String PLEDGE_EVENT_STATUS = "status";
+
     private Constants() {}
 }

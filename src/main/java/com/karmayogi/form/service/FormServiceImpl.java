@@ -351,6 +351,9 @@ public class FormServiceImpl implements FormService{
                 if (isKarmaPointsEligible(request, status, saveResult.previousStatus())) {
                     raiseKarmaPointsEvent(request, userId);
                 }
+                if (SANKALP_SURVEY.equalsIgnoreCase(contextType)) {
+                    raiseSankalpPledgeEvent(request, userId, status, contextType);
+                }
             }
 
             Map<String, Object> data = new LinkedHashMap<>();
@@ -440,6 +443,27 @@ public class FormServiceImpl implements FormService{
                     eventType, userId, request.getFormId(), request.getContextId());
         } catch (Exception e) {
             log.error("[KARMA_POINTS][failed] Could not publish karma event for userId={}: {}",
+                    userId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Publishes a pledge event for every authenticated form submission. Never throws.
+     */
+    private void raiseSankalpPledgeEvent(FormSubmissionRequest request, String userId, String status, String contextType) {
+        try {
+            Map<String, Object> event = new LinkedHashMap<>();
+            event.put(PLEDGE_EVENT_USER_ID, userId);
+            event.put(PLEDGE_EVENT_CONTEXT_ID, request.getContextId());
+            event.put(PLEDGE_EVENT_CONTEXT_TYPE, contextType);
+            event.put(PLEDGE_EVENT_SUBMITTED_DATE, String.valueOf(System.currentTimeMillis()));
+            event.put(PLEDGE_EVENT_STATUS, status);
+
+            formEventPublisher.pushToPipeline(event, formConfig.getSankalpPledgeEventTopic(), userId);
+            log.info("[SANKALP_PLEDGE][published] userId={}, formId={}, contextId={}",
+                    userId, request.getFormId(), request.getContextId());
+        } catch (Exception e) {
+            log.error("[SANKALP_PLEDGE][failed] Could not publish pledge event for userId={}: {}",
                     userId, e.getMessage(), e);
         }
     }
