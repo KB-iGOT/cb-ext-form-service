@@ -367,6 +367,8 @@ public class Constants {
     public static final String EDATA = "edata";
     public static final String SURVEY_ID = "surveyId";
     public static final String DATE_TIME = "date_time";
+    public static final String EVENT_NAME = "eventName";
+    public static final String ERR_CONTEXT_NAME_MISSING = "contextName is required";
 
     private Constants() {}
 }

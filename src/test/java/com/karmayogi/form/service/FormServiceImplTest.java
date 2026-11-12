@@ -1201,6 +1201,7 @@ public class FormServiceImplTest {
         when(formSubmissionHelper.saveAuthenticated(eq(request), eq(userId), eq("SUBMITTED"), anyString(), any(), any()))
                 .thenReturn(new SubmissionSaveResult("sub-123", null));
         when(formConfig.getKarmaPointsUnifiedEventTopic()).thenReturn("dev.karma.points.unified.v2.event");
+        when(formConfig.getKarmaPointsAllowedContextTypes()).thenReturn(Set.of("completionSurvey", "sankalp"));
 
         formService.submitForm(request, userId, false);
 
@@ -1223,6 +1224,7 @@ public class FormServiceImplTest {
         request.setFormId("form-123");
         request.setContextId("course-123");
         request.setContextType("sankalp");
+        request.setContextName("Karmayogi Sankalpa");
         request.setStatus("SUBMITTED");
         request.setResponses(Collections.emptyList());
 
@@ -1233,6 +1235,7 @@ public class FormServiceImplTest {
         when(formSubmissionHelper.saveAuthenticated(eq(request), eq(userId), eq("SUBMITTED"), anyString(), any(), any()))
                 .thenReturn(new SubmissionSaveResult("sub-123", null));
         when(formConfig.getKarmaPointsUnifiedEventTopic()).thenReturn("dev.karma.points.unified.v2.event");
+        when(formConfig.getKarmaPointsAllowedContextTypes()).thenReturn(Set.of("completionSurvey", "sankalp"));
 
         formService.submitForm(request, userId, false);
 
@@ -1244,6 +1247,7 @@ public class FormServiceImplTest {
         Map<String, Object> edata = (Map<String, Object>) ((Map<String, Object>) event.get(Constants.DATA)).get(Constants.EDATA);
         assertEquals("course-123", edata.get(Constants.COURSE_ID));
         assertNotNull(edata.get(Constants.DATE_TIME));
+        assertEquals("Karmayogi Sankalpa", edata.get(Constants.EVENT_NAME));
     }
 
     @Test
@@ -1261,6 +1265,7 @@ public class FormServiceImplTest {
         when(formSubmissionHelper.normalizeResponses(any())).thenReturn(Collections.emptyList());
         when(formSubmissionHelper.saveAuthenticated(eq(request), eq(userId), eq("SUBMITTED"), anyString(), any(), any()))
                 .thenReturn(new SubmissionSaveResult("sub-123", "SUBMITTED"));
+        when(formConfig.getKarmaPointsAllowedContextTypes()).thenReturn(Set.of("completionSurvey", "sankalp"));
 
         formService.submitForm(request, userId, false);
 
@@ -1282,6 +1287,7 @@ public class FormServiceImplTest {
         when(formSubmissionHelper.normalizeResponses(any())).thenReturn(Collections.emptyList());
         when(formSubmissionHelper.saveAuthenticated(eq(request), eq(userId), eq("SUBMITTED"), anyString(), any(), any()))
                 .thenReturn(new SubmissionSaveResult("sub-123", null));
+        when(formConfig.getKarmaPointsAllowedContextTypes()).thenReturn(Set.of("completionSurvey", "sankalp"));
 
         formService.submitForm(request, userId, false);
 
@@ -1303,6 +1309,7 @@ public class FormServiceImplTest {
         when(formSubmissionHelper.normalizeResponses(any())).thenReturn(Collections.emptyList());
         when(formSubmissionHelper.saveAuthenticated(eq(request), eq(userId), eq("SUBMITTED"), anyString(), any(), any()))
                 .thenReturn(new SubmissionSaveResult("sub-123", null));
+        when(formConfig.getKarmaPointsAllowedContextTypes()).thenReturn(Set.of("completionSurvey", "sankalp"));
 
         formService.submitForm(request, userId, false);
 

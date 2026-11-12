@@ -70,4 +70,5 @@ public class FormConfig {
     private String peerValidationNotifyTopic;
     private List<String> attachmentAllowedDomains;
     private String karmaPointsUnifiedEventTopic;
+    private Set<String> karmaPointsAllowedContextTypes;
 }

@@ -79,6 +79,15 @@ public class FormSubmissionHelper {
         if (StringUtils.isBlank(request.getFormId()))
             return Constants.ERR_FORM_ID_MISSING;
 
+        // sankalp submissions feed the SANKALP_EVENT karma payload, which needs the event id
+        // and name, so reject upfront instead of silently skipping the karma event later
+        if (Constants.SANKALP_SURVEY.equalsIgnoreCase(request.getContextType())) {
+            if (StringUtils.isBlank(request.getContextId()))
+                return Constants.ERR_CONTEXT_ID_MISSING;
+            if (StringUtils.isBlank(request.getContextName()))
+                return Constants.ERR_CONTEXT_NAME_MISSING;
+        }
+
         if (StringUtils.isBlank(request.getStatus()))
             return Constants.ERR_STATUS_MISSING;
 

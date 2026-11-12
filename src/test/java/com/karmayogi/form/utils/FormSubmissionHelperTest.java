@@ -2,6 +2,7 @@ package com.karmayogi.form.utils;
 
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.model.FormSubmissionRequest;
+import com.karmayogi.form.model.QuestionResponse;
 import com.karmayogi.form.model.SubmissionSaveResult;
 import com.karmayogi.form.repository.FormSubmissionRepository;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +33,9 @@ public class FormSubmissionHelperTest {
 
     @Mock
     private FormCacheService formCacheService;
+
+    @Mock
+    private UserUtils userUtils;
 
     @InjectMocks
     private FormSubmissionHelper formSubmissionHelper;
@@ -103,6 +108,51 @@ public class FormSubmissionHelperTest {
         formSubmissionHelper.saveAuthenticated(request(null), "user-1", "DRAFT", "form", List.of(), Map.of());
 
         assertEquals("", savedSubmission().getContextId());
+    }
+
+    @Test
+    void validateSankalpSurvey_missingContextId_returnsError() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextName("Karmayogi Sankalpa");
+        request.setStatus("SUBMITTED");
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertEquals("contextId is required", error);
+    }
+
+    @Test
+    void validateSankalpSurvey_missingContextName_returnsError() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextId("course-1");
+        request.setStatus("SUBMITTED");
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertEquals("contextName is required", error);
+    }
+
+    @Test
+    void validateSankalpSurvey_withContextIdAndName_passesValidation() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextId("course-1");
+        request.setContextName("Karmayogi Sankalpa");
+        request.setStatus("SUBMITTED");
+        request.setResponses(List.of(QuestionResponse.builder()
+                .questionId("q1").question("Q1").answer("a1").answerType("text").build()));
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertNull(error);
     }
 
     private FormSubmissionRequest request(String contextId) {

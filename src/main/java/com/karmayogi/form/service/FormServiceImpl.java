@@ -342,17 +342,16 @@ public class FormServiceImpl implements FormService{
 
 
             String submissionId;
-            String previousStatus = null;
             if (isAnonymousUser) {
                 submissionId = formSubmissionHelper.saveAnonymous(request, status, contextType, normalizedResponses);
             } else {
                 SubmissionSaveResult saveResult = formSubmissionHelper.saveAuthenticated(
                         request, userId, status, contextType, normalizedResponses, userInfo);
                 submissionId = saveResult.submissionId();
-                previousStatus = saveResult.previousStatus();
+                if (isKarmaPointsEligible(request, status, saveResult.previousStatus())) {
+                    raiseKarmaPointsEvent(request, userId);
+                }
             }
-
-            raiseKarmaPointsEventIfEligible(request, userId, isAnonymousUser, status, previousStatus);
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put(DOCUMENT_ID, submissionId);
@@ -376,36 +375,43 @@ public class FormServiceImpl implements FormService{
     }
 
     /**
-     * Publishes a karma points event for a saved SUBMITTED form submission: completionSurvey
-     * contextType produces a SURVEY_SUBMISSION event, sankalp produces a SANKALP_EVENT
-     * (with an added date_time field). Skipped for anonymous users, non-SUBMITTED status, other
-     * contextTypes, a blank contextId (course id), or a resubmission that was already SUBMITTED
-     * before (so karma isn't re-awarded). Never throws.
+     * All karma points eligibility rules in one place: status must be SUBMITTED, contextType
+     * must be one of the config-driven allowed types (form.karma-points-allowed-context-types),
+     * contextId (course id) must be present, and the submission must not have already been
+     * SUBMITTED before (so a resubmission doesn't re-award karma).
      */
-    private void raiseKarmaPointsEventIfEligible(FormSubmissionRequest request, String userId,
-                                                 boolean isAnonymousUser, String status,
-                                                 String previousStatus) {
-        try {
-            if (isAnonymousUser || StringUtils.isBlank(userId) || !SUBMITTED_CAPS.equalsIgnoreCase(status)) {
-                return;
-            }
-            String contextType = request.getContextType();
-            boolean isCompletionSurvey = COMPLETION_SURVEY.equalsIgnoreCase(contextType);
-            boolean isSankalpSurvey = SANKALP_SURVEY.equalsIgnoreCase(contextType);
-            if (!isCompletionSurvey && !isSankalpSurvey) {
-                return;
-            }
+    private boolean isKarmaPointsEligible(FormSubmissionRequest request, String status, String previousStatus) {
+        if (!SUBMITTED_CAPS.equalsIgnoreCase(status)) {
+            return false;
+        }
+        String contextType = request.getContextType();
+        Set<String> allowedContextTypes = formConfig.getKarmaPointsAllowedContextTypes();
+        boolean isEligibleContextType = CollectionUtils.isNotEmpty(allowedContextTypes)
+                && allowedContextTypes.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(contextType));
+        if (!isEligibleContextType) {
+            return false;
+        }
+        String logCtx = "formId=" + request.getFormId() + ", contextId=" + request.getContextId();
+        if (SUBMITTED_CAPS.equalsIgnoreCase(previousStatus)) {
+            log.info("[KARMA_POINTS][skipped] Already submitted: {}", logCtx);
+            return false;
+        }
+        if (StringUtils.isBlank(request.getContextId())) {
+            log.info("[KARMA_POINTS][skipped] No contextId (course id): {}", logCtx);
+            return false;
+        }
+        return true;
+    }
 
-            String logCtx = "userId=" + userId + ", formId=" + request.getFormId()
-                    + ", contextId=" + request.getContextId();
-            if (SUBMITTED_CAPS.equalsIgnoreCase(previousStatus)) {
-                log.info("[KARMA_POINTS][skipped] Already submitted: {}", logCtx);
-                return;
-            }
-            if (StringUtils.isBlank(request.getContextId())) {
-                log.info("[KARMA_POINTS][skipped] No contextId (course id): {}", logCtx);
-                return;
-            }
+    /**
+     * Builds and publishes a karma points event for a submission that's already been confirmed
+     * eligible by {@link #isKarmaPointsEligible}: completionSurvey contextType produces a
+     * SURVEY_SUBMISSION event, sankalp produces a SANKALP_EVENT (with an added date_time field,
+     * epoch milliseconds, and an eventName field from request.contextName). Never throws.
+     */
+    private void raiseKarmaPointsEvent(FormSubmissionRequest request, String userId) {
+        try {
+            boolean isSankalpSurvey = SANKALP_SURVEY.equalsIgnoreCase(request.getContextType());
 
             Map<String, Object> edata = new LinkedHashMap<>();
             edata.put(USER_ID, userId);
@@ -415,7 +421,8 @@ public class FormServiceImpl implements FormService{
             String eventType;
             if (isSankalpSurvey) {
                 eventType = KARMA_EVENT_TYPE_SANKALP;
-                edata.put(DATE_TIME, String.valueOf(System.currentTimeMillis() / 1000));
+                edata.put(DATE_TIME, String.valueOf(System.currentTimeMillis()));
+                edata.put(EVENT_NAME, request.getContextName());
             } else {
                 eventType = KARMA_EVENT_TYPE_SURVEY_SUBMISSION;
             }
@@ -429,7 +436,8 @@ public class FormServiceImpl implements FormService{
             event.put(VERSION, 1);
 
             formEventPublisher.pushToPipeline(event, formConfig.getKarmaPointsUnifiedEventTopic(), userId);
-            log.info("[KARMA_POINTS][published] eventType={}, {}", eventType, logCtx);
+            log.info("[KARMA_POINTS][published] eventType={}, userId={}, formId={}, contextId={}",
+                    eventType, userId, request.getFormId(), request.getContextId());
         } catch (Exception e) {
             log.error("[KARMA_POINTS][failed] Could not publish karma event for userId={}: {}",
                     userId, e.getMessage(), e);
