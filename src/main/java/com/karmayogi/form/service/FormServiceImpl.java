@@ -351,7 +351,9 @@ public class FormServiceImpl implements FormService{
                 if (isKarmaPointsEligible(request, status, saveResult.previousStatus())) {
                     raiseKarmaPointsEvent(request, userId);
                 }
-                raiseSankalpPledgeEvent(request, userId, status, contextType);
+                if (SANKALP_SURVEY.equalsIgnoreCase(contextType)) {
+                    raiseSankalpPledgeEvent(request, userId, status, contextType);
+                }
             }
 
             Map<String, Object> data = new LinkedHashMap<>();
