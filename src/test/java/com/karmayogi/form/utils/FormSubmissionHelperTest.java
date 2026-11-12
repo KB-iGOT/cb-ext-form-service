@@ -2,6 +2,8 @@ package com.karmayogi.form.utils;
 
 import com.karmayogi.form.entity.FormSubmission;
 import com.karmayogi.form.model.FormSubmissionRequest;
+import com.karmayogi.form.model.QuestionResponse;
+import com.karmayogi.form.model.SubmissionSaveResult;
 import com.karmayogi.form.repository.FormSubmissionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +33,9 @@ public class FormSubmissionHelperTest {
 
     @Mock
     private FormCacheService formCacheService;
+
+    @Mock
+    private UserUtils userUtils;
 
     @InjectMocks
     private FormSubmissionHelper formSubmissionHelper;
@@ -56,11 +62,12 @@ public class FormSubmissionHelperTest {
         when(formSubmissionRepository.findByFormIdAndUserIdAndContextId("form-1", "user-1", "prog-1"))
                 .thenReturn(Optional.empty());
 
-        String submissionId = formSubmissionHelper.saveAuthenticated(request, "user-1", "SUBMITTED",
+        SubmissionSaveResult result = formSubmissionHelper.saveAuthenticated(request, "user-1", "SUBMITTED",
                 "form", List.of(Map.of("questionId", "q1", "answer", "a1")), Map.of("fullName", "Learner"));
 
         FormSubmission saved = savedSubmission();
-        assertEquals(submissionId, saved.getSubmissionId());
+        assertEquals(result.submissionId(), saved.getSubmissionId());
+        assertNull(result.previousStatus());
         assertEquals("prog-1", saved.getContextId());
         assertEquals("SUBMITTED", saved.getStatus());
         assertNull(saved.getUpdatedBy());
@@ -80,11 +87,12 @@ public class FormSubmissionHelperTest {
         when(formSubmissionRepository.findByFormIdAndUserIdAndContextId("form-1", "user-1", "prog-1"))
                 .thenReturn(Optional.of(existing));
 
-        String submissionId = formSubmissionHelper.saveAuthenticated(request("prog-1"), "user-1", "SUBMITTED",
+        SubmissionSaveResult result = formSubmissionHelper.saveAuthenticated(request("prog-1"), "user-1", "SUBMITTED",
                 "form", List.of(Map.of("questionId", "q1", "answer", "new")), Map.of());
 
         FormSubmission saved = savedSubmission();
-        assertEquals("sub-old", submissionId);
+        assertEquals("sub-old", result.submissionId());
+        assertEquals("SUBMITTED", result.previousStatus());
         assertEquals("sub-old", saved.getSubmissionId());
         assertEquals(List.of(Map.of("questionId", "q1", "answer", "new")), saved.getResponses());
         assertEquals("user-1", saved.getUpdatedBy());
@@ -100,6 +108,51 @@ public class FormSubmissionHelperTest {
         formSubmissionHelper.saveAuthenticated(request(null), "user-1", "DRAFT", "form", List.of(), Map.of());
 
         assertEquals("", savedSubmission().getContextId());
+    }
+
+    @Test
+    void validateSankalpSurvey_missingContextId_returnsError() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextName("Karmayogi Sankalpa");
+        request.setStatus("SUBMITTED");
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertEquals("contextId is required", error);
+    }
+
+    @Test
+    void validateSankalpSurvey_missingContextName_returnsError() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextId("course-1");
+        request.setStatus("SUBMITTED");
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertEquals("contextName is required", error);
+    }
+
+    @Test
+    void validateSankalpSurvey_withContextIdAndName_passesValidation() throws IOException {
+        when(userUtils.getUsersReadData("user-1")).thenReturn(Map.of("firstName", "Learner"));
+        FormSubmissionRequest request = new FormSubmissionRequest();
+        request.setFormId("form-1");
+        request.setContextType("sankalp");
+        request.setContextId("course-1");
+        request.setContextName("Karmayogi Sankalpa");
+        request.setStatus("SUBMITTED");
+        request.setResponses(List.of(QuestionResponse.builder()
+                .questionId("q1").question("Q1").answer("a1").answerType("text").build()));
+
+        String error = formSubmissionHelper.validate(request, "user-1", new java.util.HashMap<>(), false);
+
+        assertNull(error);
     }
 
     private FormSubmissionRequest request(String contextId) {
